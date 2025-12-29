@@ -41,7 +41,7 @@ typedef enum GbMemoryMapUnitSection {
     GB_VRAM_SECTION,
 } GbMemoryMapUnitSection;
 
-typedef union GbMemoryMapUnit {
+typedef struct GbMemoryMapUnit {
     GbROM  *rom;
     GbRAM  *ram;
     GbIO   *io;

@@ -26,6 +26,7 @@ static inline bool gb__mmu_dealloc_memory(struct Memory *mem)
     if (mem->data != NULL) {
         free(mem->data);
     }
+
     mem->data = NULL;
     mem->capacity = 0;
     mem->count = 0;
