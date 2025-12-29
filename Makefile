@@ -1,16 +1,45 @@
-CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -ggdb
-LIBS = -lm
+CC=gcc
+CFLAGS=-Wall -Wextra -std=c99 -ggdb -MMD
+LIBS=-lm
+
+BUILD=build
+
+SRC=src
+MMU=src/mmu
+LOG=src/log
+
+OBJ=obj
+OBJ_MMU=obj/mmu
+OBJ_LOG=obj/log
+
+OBJS=\
+	$(OBJ)/gb.o \
+	$(OBJ_MMU)/mmu.o \
+	$(OBJ_LOG)/log.o \
 
 .PHONY: all clean
 
-all: gb
+TARGET=$(BUILD)/gb
 
-build:
-	@mkdir -p build
+all: $(TARGET)
 
-gb: src/gb.c | build
-	$(CC) $(CFLAGS) -o build/main src/gb.c
+$(OBJ) $(OBJ_MMU) $(OBJ_LOG) $(BUILD):
+	@mkdir -p $@
+
+$(OBJ)/gb.o: $(SRC)/gb.c | $(OBJ)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_MMU)/mmu.o: $(MMU)/mmu.c | $(OBJ_MMU)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_LOG)/log.o: $(LOG)/log.c | $(OBJ_LOG)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(TARGET): $(OBJS) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)
+
+debug: build/gb | $(BUILD)
+	gf2 $<
 
 clean:
-	rm -rf build/
+	rm -rf $(OBJ) $(BUILD)
