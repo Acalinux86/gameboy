@@ -6,10 +6,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-typedef struct GbError {
-    const char *error;
-} GbError;
-
 void gb_error(const char *fmt, ...);
 #define gb_abort(fmt, ...) gb_error(fmt, ##__VA_ARGS__); abort();
 
