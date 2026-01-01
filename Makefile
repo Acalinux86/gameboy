@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS= -Wall -Wextra -Wswitch-enum -std=c99 -ggdb -MMD
+CFLAGS= -Wall -Wextra -Wswitch-enum -std=c99 -ggdb -MMD -Wno-format-truncation
 LIBS=-lm
 
 BUILD=build
