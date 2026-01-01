@@ -3,3 +3,6 @@ build/
 
 # Object Folder
 obj/
+
+# TODOs File
+todos.md
