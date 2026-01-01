@@ -15,22 +15,22 @@ const char *gb_mmu_section_string(const GbMemoryMapUnitSection section)
     case GB_IO_SECTION:      return "Input/Output";
     case GB_HRAM_SECTION:    return "High Ram";
     default:
-        gb_abort("Unreachable Section");
+        GB_ABORT("Unreachable Section");
     }
-    gb_abort("Unreachable");
+    GB_ABORT("Unreachable");
 }
 
 static inline struct Memory *gb__mmu_alloc_memory(const int capacity, const int start, const int end)
 {
     struct Memory *mem = (struct Memory *)calloc(1, sizeof(*mem));
     if (mem == NULL) {
-        gb_error("Memory Allocation Failed For Struct");
+        GB_ERROR("Memory Allocation Failed For Struct");
         return NULL;
     }
 
     mem->data = (int*)calloc(capacity, sizeof(*mem->data));
     if (mem->data == NULL) {
-        gb_error("Memory Allocation Failed For Data");
+        GB_ERROR("Memory Allocation Failed For Data");
         return NULL;
     }
 
@@ -57,21 +57,26 @@ static inline bool gb__mmu_dealloc_memory(struct Memory *mem)
     return true;
 }
 
-#define GB_CHECK_MEMORY_CAPACITY(mem) do { if ((mem)->count >= (mem)->capacity) { gb_abort("Capacity Reached => Used: %d, Capacity: %d", (mem)->count, (mem)->capacity); } } while (0)
+#define GB_CHECK_MEMORY_CAPACITY(mem) do { if ((mem)->count >= (mem)->capacity) { GB_ABORT("Capacity Reached => Used: %d, Capacity: %d", (mem)->count, (mem)->capacity); } } while (0)
 
 static inline int gb__mmu_get_virtual_location(const int start, const int end, const int loc)
 {
     const int virtual_location = loc - start;
-    assert(virtual_location >= 0);
-    assert(virtual_location < (end - start));
+    GB_ASSERT(virtual_location >= 0);
+    GB_ASSERT(virtual_location < (end - start));
     return virtual_location;
 }
 
 static bool gb__mmu_write_memory(struct Memory *mem, const int location, const int value)
 {
     if (!mem) return false;
-    if (!(value < 0 && GB_MAX_U16 >= value)) {
-        gb_error("Value: %d Not in 16-bit Range", value);
+    if (value < 0) {
+        GB_ERROR("Value: %d less than 0", value);
+        return false;
+    }
+
+    if (value > GB_MAX_U16) {
+        GB_ERROR("Value: %s Cannot Fit in 16-Bit Range", value);
         return false;
     }
 
@@ -80,7 +85,7 @@ static bool gb__mmu_write_memory(struct Memory *mem, const int location, const i
 
     // Gives you an index within the allocated memory for a section
     const int index = gb__mmu_get_virtual_location(mem->start, mem->end, location);
-    gb_info("Writing to Virtual Location: %d", index);
+    GB_DEBUG("Writing to Virtual Location: %d", index);
 
     mem->data[index] = value;
     mem->count++;
@@ -90,7 +95,7 @@ static bool gb__mmu_write_memory(struct Memory *mem, const int location, const i
 static int gb__mmu_read_memory(const struct Memory *mem, const int loc)
 {
     const int index = gb__mmu_get_virtual_location(mem->start, mem->end, loc);
-    gb_info("Reading from Virtual Location: %d", index);
+    GB_DEBUG("Reading from Virtual Location: %d", index);
     return mem->data[index];
 }
 
@@ -98,7 +103,7 @@ static inline GbMemoryMapUnit *gb__mmu_alloc(void)
 {
     GbMemoryMapUnit *unit = (GbMemoryMapUnit*)malloc(sizeof(*unit));
     if (unit == NULL) {
-        gb_error("Memory Allocation Failed For Struct");
+        GB_ERROR("Memory Allocation Failed For Struct");
         return NULL;
     }
     return unit;
@@ -106,11 +111,11 @@ static inline GbMemoryMapUnit *gb__mmu_alloc(void)
 
 #define GB_REGISTER_UNIT(mem)    \
     mem = gb__mmu_alloc(); \
-    assert(mem != NULL);
+    GB_ASSERT(mem != NULL);
 
 #define GB_REGISTER_MEMORY(mem, cap, start, end) \
     mem = gb__mmu_alloc_memory(cap, start, end); \
-    assert(mem != NULL); \
+    GB_ASSERT(mem != NULL); \
 
 GbMemoryMapUnitSection gb__mmu_get_section(const GbMemoryMap *mmu)
 {
@@ -154,7 +159,7 @@ const int GbPhysicalAddressSpace[GB_ADDRESS_SPACES_COUNT][2] = {
 
 static inline GbMemoryMapUnitSection gb__mmu_match_location_to_section(const int loc)
 {
-    gb_info("location => %d", loc);
+    GB_DEBUG("location => %d", loc);
     GbMemoryMapUnitSection section = GB_ILLEGAL_SECTION;
     for (int i = 0; i < GB_ADDRESS_SPACES_COUNT; ++i) {
         const int start = GbPhysicalAddressSpace[i][0];
@@ -167,7 +172,7 @@ static inline GbMemoryMapUnitSection gb__mmu_match_location_to_section(const int
             continue;
         }
     }
-    gb_info("section => %s", gb_mmu_section_string(section));
+    GB_DEBUG("section => %s", gb_mmu_section_string(section));
     return section;
 }
 
@@ -178,7 +183,7 @@ bool gb_mmu_write(GbMemoryMap *mmu, const int location, const int value)
 
     switch (mmu->section) {
     case GB_ROM_SECTION: {
-        gb_error("Write To ROM Section Forbidden");
+        GB_ERROR("Write To ROM Section Forbidden");
         return false;
     }
 
@@ -214,9 +219,9 @@ bool gb_mmu_write(GbMemoryMap *mmu, const int location, const int value)
 
     case GB_ILLEGAL_SECTION:
     default:
-        gb_abort("Writing to Unreachable Section");
+        GB_ABORT("Writing to Unreachable Section");
     }
-    gb_abort("Unreachable");
+    GB_ABORT("Unreachable");
 }
 
 int gb_mmu_read(GbMemoryMap *mmu, const int location)
@@ -255,10 +260,10 @@ int gb_mmu_read(GbMemoryMap *mmu, const int location)
 
     case GB_ILLEGAL_SECTION:
     default: {
-        gb_abort("Reading From Unreachable Section")
+        GB_ABORT("Reading From Unreachable Section");
     }
     }
-    gb_abort("Unreachable");
+    GB_ABORT("Unreachable");
 }
 
 bool gb_mmu_destroy(GbMemoryMap *mmu) {

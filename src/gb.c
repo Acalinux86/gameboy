@@ -3,20 +3,24 @@
 
 int main(void)
 {
+    const char *gb_dir = "./src";
+    const char *log_file_path = NULL;
+    gb_log_init(gb_dir, log_file_path, GB_LOG_DEBUG);
     GbMemoryMap mmu = {0};
-    gb_info("Initializing Memory");
+    GB_INFO("Initializing Memory");
     gb_mmu_init(&mmu);
-    gb_info("Initialized Memory");
+    GB_INFO("Initialized Memory");
     const int location = 0xA100;
     if (!gb_mmu_write(&mmu, location, 69)) {
-        gb_error("Could Not Write to Location: %d", location);
+        GB_ABORT("Could Not Write to Location: %d", location);
         return 1;
     }
-    gb_info("Successfully wrote to %d", location);
+    GB_INFO("Successfully wrote to %d", location);
 
     const int data = gb_mmu_read(&mmu, location);
-    gb_info("Successfully Read => %d from %d", data, location);
+    GB_INFO("Successfully Read => %d from %d", data, location);
     gb_mmu_destroy(&mmu);
-    gb_info("Memory Destroyed");
+    GB_INFO("Memory Destroyed");
+    gb_log_shutdown();
     return 0;
 }
