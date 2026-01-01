@@ -1,13 +1,7 @@
 #ifndef GB_MEMORY_MAP_SECTION_H_
 #define GB_MEMORY_MAP_SECTION_H_
 
-#include "../log/log.h"
-
-#include <stdlib.h>
-#include <assert.h>
 #include <stdbool.h>
-
-
 
 #define GB_ROM_SIZE  (32 * 1024) /* Rom size*/
 #define GB_VRAM_SIZE (8  * 1024) /* Video Ram size */
@@ -19,7 +13,7 @@
 
 #define GB_MAX_U16 ((1 << 16) - 1)
 
-#define GB_ILLEGAL_ADDR 1 << 31
+#define GB_ILLEGAL_ADDR (1 << 31)
 #define GB_ROM_START    0x0000
 #define GB_ROM_END      0x8000
 #define GB_VRAM_START   0x8000
@@ -43,7 +37,7 @@ struct Memory {
     int end;
 };
 
-typedef struct Memory GbROM; // Read Only Memory
+typedef struct Memory GbROM; // Read-Only Memory
 typedef struct Memory GbSRAM; // Switchable RAM
 typedef struct Memory GbIRAM; // Internal Ram
 typedef struct Memory GbVRAM; // Video Ram
@@ -62,6 +56,8 @@ typedef enum GbMemoryMapUnitSection {
     GB_HRAM_SECTION,
 } GbMemoryMapUnitSection;
 
+const char *gb_mmu_section_string(const GbMemoryMapUnitSection section);
+
 #define GB_ADDRESS_SPACES_COUNT 8
 
 typedef struct GbMemoryMapUnit {
@@ -79,11 +75,9 @@ typedef struct MemoryMap {
     GbMemoryMapUnit *unit;
 } GbMemoryMap;
 
-const char *gb_mmu_section_string(GbMemoryMapUnitSection section);
-
-void gb_mmu_init(GbMemoryMap *mmu);
+bool gb_mmu_write  (GbMemoryMap *mmu, const int location, const int value);
+int  gb_mmu_read   (GbMemoryMap *mmu, const int location);
+void gb_mmu_init   (GbMemoryMap *mmu);
 bool gb_mmu_destroy(GbMemoryMap *mmu);
-bool gb_mmu_write(GbMemoryMap *mmu, int location, int value);
-int gb_mmu_read(GbMemoryMap *mmu, int location);
 
 #endif // GB_MEMORY_MAP_SECTION_H_
