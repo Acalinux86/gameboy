@@ -16,7 +16,7 @@ GbLogger Logger = {
     .files = NULL,
 };
 
-const char* gb_log_level_string(GbLogLevel level)
+const char* gb_log_level_string(const GbLogLevel level)
 {
     switch (level) {
         case GB_LOG_DEBUG:  return "DEBUG ";
@@ -30,7 +30,7 @@ const char* gb_log_level_string(GbLogLevel level)
     }
 }
 
-const char* gb_log_level_color(GbLogLevel level)
+const char* gb_log_level_color(const GbLogLevel level)
 {
     switch (level) {
         case GB_LOG_DEBUG: return GB_LOG_COLOR_DEBUG;
@@ -66,20 +66,20 @@ static GbCSourceFile *gb__log_alloc_files(void)
     return files;
 }
 
-static inline void gb__log_set_src_file(char *c_src_file)
+static inline void gb__log_set_src_file(GbCSourceFile *files, char *c_src_file)
 {
-    if (Logger.files == NULL) return;
+    if (files == NULL) return;
 
-    if (Logger.files->count >= Logger.files->capacity) {
-        int new_cap = GB_GROW_CAPACITY(Logger.files->capacity);
+    if (files->count >= files->capacity) {
+        const int new_cap = GB_GROW_CAPACITY(files->capacity);
         char **new_ptr = NULL;
-        GB_GROW_FILES_ARRAY(Logger.files->c_src_files, new_ptr, new_cap);
-        Logger.files->c_src_files = new_ptr;
+        GB_GROW_FILES_ARRAY(files->c_src_files, new_ptr, new_cap);
+        files->c_src_files = new_ptr;
     }
-    Logger.files->c_src_files[Logger.files->count++] = c_src_file;
+    files->c_src_files[files->count++] = c_src_file;
 }
 
-static inline const char *gb__log_get_src_file(const GbCSourceFile *files, int index)
+static inline const char *gb__log_get_src_file(const GbCSourceFile *files, const int index)
 {
     GB_ASSERT(index < files->count && index > 0, "Index: %d Out of Bounds(0, %d)", index, files->count);
     const char *src_file = files->c_src_files[index];
@@ -99,8 +99,14 @@ static inline size_t gb__determine_max_file_len(const GbCSourceFile *files)
     return max;
 }
 
-#define GB_PATH_MAX 256
+// We are only Allowing C Source files to be logged
+bool gb__log_validate_c_file(const char *filename)
+{
+    const size_t len = strlen(filename);
+    return filename[len - 1] == 'c' && filename[len - 2] == '.';
+}
 
+#define GB_PATH_MAX 256
 static void gb__log_extract_c_src_files(const char *path)
 {
     DIR *dir;
@@ -125,7 +131,15 @@ static void gb__log_extract_c_src_files(const char *path)
             }
 
             // Append the entry to the global String Array
-            gb__log_set_src_file(gb__log_str_dup(ent->d_name));
+            char *file = gb__log_str_dup(ent->d_name);
+            assert(file != NULL);
+
+            const bool valid_c_file = gb__log_validate_c_file(file);
+            if (valid_c_file) {
+                gb__log_set_src_file(Logger.files, file);
+            } else {
+                free(file);
+            }
 
             // If it's a directory, recurse into it
             if (S_ISDIR(statbuf.st_mode)) {
@@ -204,7 +218,7 @@ FILE * gb__log_match_level_to_stream(const GbLogLevel level)
     }
 }
 
-void gb_log(const GbLogLevel level, const char *file, int line, const char *fmt, ...)
+void gb_log(const GbLogLevel level, const char *file, const int line, const char *fmt, ...)
 {
     if (level < Logger.min_level) {
         return;
@@ -212,8 +226,8 @@ void gb_log(const GbLogLevel level, const char *file, int line, const char *fmt,
 
     char timestamp[64] = {0};
     if (Logger.use_timestamp) {
-        time_t now = time(NULL);
-        struct tm *tm_info = localtime(&now);
+        const time_t now = time(NULL);
+        const struct tm *tm_info = localtime(&now);
         strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
     }
 
@@ -221,14 +235,14 @@ void gb_log(const GbLogLevel level, const char *file, int line, const char *fmt,
     const char *filename = strrchr(file, '/');
     filename = filename ? filename + 1 : file;
 
-    // Determine the Max File Lenght for Aligning Logs
+    // Determine the Max File Length for Aligning Logs
     const size_t max_file_len = Logger.max_file_len;
     va_list args;
 
     // Log to console
     if (Logger.log_to_console) {
         FILE *stream = gb__log_match_level_to_stream(level);
-        GB_ASSERT(stream != NULL);
+        assert(stream != NULL);
         if (Logger.use_color) {
             if (Logger.use_timestamp) {
                 fprintf(stderr, "%s[%s]%s %s[%s]%s %*s:%04d: ",
@@ -274,7 +288,7 @@ void gb_log(const GbLogLevel level, const char *file, int line, const char *fmt,
     }
 }
 
-void gb_log_set_level(GbLogLevel level)
+void gb_log_set_level(const GbLogLevel level)
 {
     Logger.min_level = level;
 }
