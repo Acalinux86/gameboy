@@ -130,7 +130,7 @@ static void gb__log_extract_c_src_files(const char *path)
                 continue;  // Skip if we can't stat
             }
 
-            // Append the entry to the global String Array
+            // Append the entry to the global Logger.files Array
             char *file = gb__log_str_dup(ent->d_name);
             assert(file != NULL);
 
