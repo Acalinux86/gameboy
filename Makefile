@@ -42,4 +42,4 @@ debug: build/gb | $(BUILD)
 	gf2 $<
 
 clean:
-	rm -rf $(OBJ) $(BUILD)
+	rm -rf $(OBJ) $(BUILD) gameboy.log
