@@ -49,7 +49,7 @@ static inline char *gb__log_str_dup(const char *src)
 {
     const size_t len = strlen(src);
     char *temp = (char *)malloc(len + 1);
-    assert(temp != NULL && "source duplication Failed.");
+    GB_ASSERT(temp != NULL && "source duplication Failed.");
     memcpy(temp, src,len + 1);
     return temp;
 }
@@ -57,12 +57,12 @@ static inline char *gb__log_str_dup(const char *src)
 static GbCSourceFile *gb__log_alloc_files(void)
 {
     GbCSourceFile *files = (GbCSourceFile*)malloc(sizeof(GbCSourceFile));
-    assert(files != NULL);
+    GB_ASSERT(files != NULL);
     files->count = 0;
     files->capacity = GB_C_SRC_FILES_CAPACITY;
 
     files->c_src_files = malloc(sizeof(*files->c_src_files) * files->capacity);
-    assert(files->c_src_files != NULL);
+    GB_ASSERT(files->c_src_files != NULL);
     return files;
 }
 
@@ -79,9 +79,9 @@ static inline void gb__log_set_src_file(GbCSourceFile *files, char *c_src_file)
     files->c_src_files[files->count++] = c_src_file;
 }
 
-static inline const char *gb__log_get_src_file(const GbCSourceFile *files, const int index)
+const char *gb__log_get_src_file(const GbCSourceFile *files, const int index)
 {
-    GB_ASSERT(index < files->count && index > 0, "Index: %d Out of Bounds(0, %d)", index, files->count);
+    GB_ASSERT(index < files->count && index >= 0 && "Index: %d Out of Bounds(0, %d)", index, files->count);
     const char *src_file = files->c_src_files[index];
     return src_file;
 }
@@ -132,7 +132,7 @@ static void gb__log_extract_c_src_files(const char *path)
 
             // Append the entry to the global Logger.files Array
             char *file = gb__log_str_dup(ent->d_name);
-            assert(file != NULL);
+            GB_ASSERT(file != NULL);
 
             const bool valid_c_file = gb__log_validate_c_file(file);
             if (valid_c_file) {
@@ -165,12 +165,12 @@ void gb_log_init(const char *gb_dir, const char *filename, const GbLogLevel min_
     gb__set_src_dir_name(gb_dir);
     Logger.files = gb__log_alloc_files();
     gb__log_extract_c_src_files(Logger.gb_dir);
-    assert(Logger.files->count > 0);
+    GB_ASSERT(Logger.files->count > 0);
     const size_t max_file_len = gb__determine_max_file_len(Logger.files);
     Logger.max_file_len = max_file_len;
 
     if (filename != NULL) {
-        Logger.log_file = fopen(filename, "a");
+        Logger.log_file = fopen(filename, "a+b");
         if (Logger.log_file != NULL) {
             Logger.log_to_file = true;
         } else {
@@ -250,17 +250,18 @@ void gb_log(const GbLogLevel level, const char *file, const int line, const char
                        gb_log_level_color(level), gb_log_level_string(level),
                         GB_LOG_COLOR_RESET, (int)max_file_len, filename, line);
             } else {
-                fprintf(stream, "%s[%s]%s %s:%4d: ",
+                fprintf(stream, "%s[%s]%s %*s:%04d: ",
                 gb_log_level_color(level), gb_log_level_string(level),
-                GB_LOG_COLOR_RESET, filename, line);
+                GB_LOG_COLOR_RESET, (int)max_file_len, filename, line);
             }
         } else {
             if (Logger.use_timestamp) {
-                fprintf(stream, "[%s] [%s] %s:%d: ",
-                       timestamp, gb_log_level_string(level), filename, line);
+                fprintf(stream, "[%s] [%s] %*s:%04d: ",
+                       timestamp, gb_log_level_string(level),
+                       (int)max_file_len, filename, line);
             } else {
-                fprintf(stream, "[%s] %s:%d: ",
-                       gb_log_level_string(level), filename, line);
+                fprintf(stream, "[%s] %*s:%04d: ",
+                       gb_log_level_string(level), (int)max_file_len, filename, line);
             }
         }
 
@@ -273,11 +274,11 @@ void gb_log(const GbLogLevel level, const char *file, const int line, const char
     // Log to file
     if (Logger.log_to_file && Logger.log_file != NULL) {
         if (Logger.use_timestamp) {
-            fprintf(Logger.log_file, "[%s] [%s] %s:%d: ",
-                   timestamp, gb_log_level_string(level), filename, line);
+            fprintf(Logger.log_file, "[%s] [%s] %*s:%04d: ",
+                   timestamp, gb_log_level_string(level), (int)max_file_len, filename, line);
         } else {
-            fprintf(Logger.log_file, "[%s] %s:%d: ",
-                   gb_log_level_string(level), filename, line);
+            fprintf(Logger.log_file, "[%s] %*s:%04d: ",
+                   gb_log_level_string(level), (int)max_file_len,filename, line);
         }
 
         va_start(args, fmt);

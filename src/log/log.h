@@ -51,7 +51,7 @@ extern GbLogger Logger;
 #define GB_LOG_COLOR_ASSERT  "\033[37;41m"  // White Text, Red Background
 
 const char* gb_log_level_string(GbLogLevel level);
-const char* gb_log_level_color(GbLogLevel level);
+const char* gb_log_level_color (GbLogLevel level);
 
 void gb_log_init(const char *gb_dir, const char *filename, GbLogLevel min_level);
 void gb_log_shutdown(void);
@@ -75,5 +75,7 @@ void gb_log_set_timestamp(bool enable);
 #define GB_C_SRC_FILES_CAPACITY 5
 #define GB_GROW_CAPACITY(capacity) capacity == 0 ? GB_C_SRC_FILES_CAPACITY : capacity * 2;
 #define GB_GROW_FILES_ARRAY(old_ptr, new_ptr, new_cap) do { new_ptr = realloc((old_ptr), sizeof(*(old_ptr))*new_cap); GB_ASSERT(new_ptr); } while (0)
+
+const char *gb__log_get_src_file(const GbCSourceFile *files, const int index);
 
 #endif // GB_ERROR_H_
