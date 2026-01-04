@@ -6,3 +6,6 @@ obj/
 
 # TODOs File
 todos.md
+
+# Gameboy Logs
+*.log
