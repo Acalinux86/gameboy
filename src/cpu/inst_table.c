@@ -3,7 +3,7 @@
 #define INST_LUT_ROWS 16 // LookUp Table Rows
 #define INST_LUT_COLS 16 // LookUp Table Cols
 
-const GbInstSet inst_lookup_table[INST_LUT_ROWS][INST_LUT_COLS] = {
+const GbOpcodeEntry inst_lookup_table[INST_LUT_ROWS][INST_LUT_COLS] = {
     // Row 0x0
     {
         {
@@ -19,7 +19,7 @@ const GbInstSet inst_lookup_table[INST_LUT_ROWS][INST_LUT_COLS] = {
             .opcode = GB_OPCODE_LD, .type = GB_TYPE_N16,
             .regs = {GB_REG_B, GB_REG_C}, .regs_count = 2,
             .bytes = 3, .t_states = 12,
-            .flags = {GB_FLAG_B, GB_FLAG_C}, .flag_count = 2,
+            .flags = {0}, .flag_count = 0,
             .state = {GB_DEF, GB_DEF, GB_DEF, GB_DEF}
         },
         {
@@ -27,7 +27,7 @@ const GbInstSet inst_lookup_table[INST_LUT_ROWS][INST_LUT_COLS] = {
             .opcode = GB_OPCODE_LD, .type = GB_TYPE_R,
             .regs = {GB_REG_A}, .regs_count = 1,
             .bytes = 1, .t_states = 8,
-            .flags = {GB_FLAG_B, GB_FLAG_C}, .flag_count = 2,
+            .flags = {0}, .flag_count = 0,
             .state = {GB_DEF, GB_DEF, GB_DEF, GB_DEF}
         },
         {
@@ -100,6 +100,6 @@ const GbInstSet inst_lookup_table[INST_LUT_ROWS][INST_LUT_COLS] = {
             .flags = {GB_FLAG_Z, GB_FLAG_N, GB_FLAG_H, GB_FLAG_C},
             .flag_count = 4,
             .state = {GB_DEF, GB_RST, GB_UPT, GB_UPT}
-        }
+        },
     },
 };
