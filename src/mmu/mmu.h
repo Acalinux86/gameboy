@@ -2,6 +2,7 @@
 #define GB_MEMORY_MAP_SECTION_H_
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #define GB_ROM_SIZE  (32 * 1024) /* Rom size*/
 #define GB_VRAM_SIZE (8  * 1024) /* Video Ram size */
@@ -12,6 +13,7 @@
 #define GB_ORAM_SIZE (160)       /* Object Attribute Memory size */
 
 #define GB_MAX_U16 ((1 << 16) - 1)
+#define GB_MAX_U8 ((1 << 8) - 1)
 
 #define GB_ILLEGAL_ADDR (1 << 31)
 #define GB_ROM_START    0x0000
@@ -30,7 +32,7 @@
 #define GB_HRAM_END     0xFFFE
 
 struct Memory {
-    int *data;
+    uint8_t *data;
     int count;
     int capacity;
     int start;

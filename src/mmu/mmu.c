@@ -28,7 +28,7 @@ static inline struct Memory *gb__mmu_alloc_memory(const int capacity, const int 
         return NULL;
     }
 
-    mem->data = (int*)calloc(capacity, sizeof(*mem->data));
+    mem->data = (uint8_t*)calloc(capacity, sizeof(*mem->data));
     if (mem->data == NULL) {
         GB_ERROR("Memory Allocation Failed For Data");
         return NULL;
@@ -75,8 +75,8 @@ static bool gb__mmu_write_memory(struct Memory *mem, const int location, const i
         return false;
     }
 
-    if (value > GB_MAX_U16) {
-        GB_ERROR("Value: %s Cannot Fit in 16-Bit Range", value);
+    if (value > GB_MAX_U8) {
+        GB_ERROR("Value: %d Cannot Fit in 8-Bit Range", value);
         return false;
     }
 
@@ -188,32 +188,32 @@ bool gb_mmu_write(GbMemoryMap *mmu, const int location, const int value)
     }
 
     case GB_WRAM_SECTION: {
-        gb__mmu_write_memory(mmu->unit->wram, location, value);
+        if (!gb__mmu_write_memory(mmu->unit->wram, location, value)) return false;
         return true;
     }
 
     case GB_ERAM_SECTION: {
-        gb__mmu_write_memory(mmu->unit->eram, location, value);
+        if (!gb__mmu_write_memory(mmu->unit->eram, location, value)) return false;
         return true;
     }
 
     case GB_IO_SECTION: {
-        gb__mmu_write_memory(mmu->unit->io, location, value);
+        if (!gb__mmu_write_memory(mmu->unit->io, location, value)) return false;
         return true;
     }
 
     case GB_VRAM_SECTION: {
-        gb__mmu_write_memory(mmu->unit->vram, location, value);
+        if (!gb__mmu_write_memory(mmu->unit->vram, location, value)) return false;
         return true;
     }
 
     case GB_ORAM_SECTION: {
-        gb__mmu_write_memory(mmu->unit->oram, location, value);
+        if (!gb__mmu_write_memory(mmu->unit->oram, location, value)) return false;
         return true;
     }
 
     case GB_HRAM_SECTION: {
-        gb__mmu_write_memory(mmu->unit->hram, location, value);
+        if (!gb__mmu_write_memory(mmu->unit->hram, location, value)) return false;
         return true;
     }
 
