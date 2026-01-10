@@ -76,6 +76,4 @@ void gb_log_set_timestamp(bool enable);
 #define GB_GROW_CAPACITY(capacity) capacity == 0 ? GB_C_SRC_FILES_CAPACITY : capacity * 2;
 #define GB_GROW_FILES_ARRAY(old_ptr, new_ptr, new_cap) do { new_ptr = realloc((old_ptr), sizeof(*(old_ptr))*new_cap); GB_ASSERT(new_ptr); } while (0)
 
-const char *gb__log_get_src_file(const GbCSourceFile *files, const int index);
-
 #endif // GB_ERROR_H_
