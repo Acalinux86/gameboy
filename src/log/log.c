@@ -79,7 +79,7 @@ static inline void gb__log_set_src_file(GbCSourceFile *files, char *c_src_file)
     files->c_src_files[files->count++] = c_src_file;
 }
 
-const char *gb__log_get_src_file(const GbCSourceFile *files, const int index)
+static inline const char *gb__log_get_src_file(const GbCSourceFile *files, const int index)
 {
     GB_ASSERT(index < files->count && index >= 0 && "Index: %d Out of Bounds(0, %d)", index, files->count);
     const char *src_file = files->c_src_files[index];
