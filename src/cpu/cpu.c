@@ -1,5 +1,6 @@
 #include "./cpu.h"
 #include "../log/log.h"
+#include "./inst_table.c"
 
 uint8_t gb_cpu_fetch8(GbCpuState *cpu)
 {

@@ -8,6 +8,7 @@ typedef struct GbRegisters {
     uint8_t A, F;
     uint8_t B, C;
     uint8_t D, E;
+    uint8_t H, L;
     uint16_t SP;
     uint16_t PC;
 } GbRegisters;
@@ -19,6 +20,8 @@ typedef enum GbRegisterType {
     GB_REG_C,
     GB_REG_D,
     GB_REG_E,
+    GB_REG_H,
+    GB_REG_L,
     GB_REG_SP,
     GB_REG_PC,
 } GbRegisterType;
@@ -58,10 +61,10 @@ typedef enum GbLoadType {
 } GbLoadType;
 
 typedef enum GbAddressMode {
-
+    a,
 } GbAddressMode;
 
-#define MAX_REGS_COUNT 8
+#define MAX_REGS_COUNT 10
 #define MAX_FLAG_BIT_COUNT 4
 #define MAX_FLAG_STATE_COUNT 4
 
@@ -85,8 +88,8 @@ typedef struct GbOpcodeEntry {
 
 GbCpuState gb_cpu_init_states(void);
 
-uint8_t gb_cpu_fetch8 (GbCpuState *cpu);
-uint8_t gb_cpu_fetch16(GbCpuState *cpu);
+uint8_t  gb_cpu_fetch8 (GbCpuState *cpu);
+uint16_t gb_cpu_fetch16(GbCpuState *cpu);
 
 bool   gb_cpu_decode_instruction(GbCpuState *cpu, const uint8_t instruction);
 
