@@ -33,10 +33,9 @@
 
 struct Memory {
     uint8_t *data;
-    int count;
-    int capacity;
-    int start;
-    int end;
+    int count, capacity;
+    int start, end;
+    bool write, read;
 };
 
 typedef struct Memory GbROM;  // Read-Only Memory
@@ -79,7 +78,10 @@ typedef struct MemoryMap {
 
 bool gb_mmu_write  (GbMemoryMap *mmu, const int location, const int value);
 int  gb_mmu_read   (GbMemoryMap *mmu, const int location);
-void gb_mmu_init   (GbMemoryMap *mmu);
+
+GbMemoryMap *gb_mmu_init(void);
 bool gb_mmu_destroy(GbMemoryMap *mmu);
 
+void gb_mmu_set_read_access (struct Memory *mem, bool enable);
+void gb_mmu_set_write_access(struct Memory *mem, bool enable);
 #endif // GB_MEMORY_MAP_SECTION_H_
