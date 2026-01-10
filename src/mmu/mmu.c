@@ -99,6 +99,16 @@ static int gb__mmu_read_memory(const struct Memory *mem, const int loc)
     return mem->data[index];
 }
 
+void gb_mmu_set_read_access (struct Memory *mem, bool enable)
+{
+    mem->read = enable;
+}
+
+void gb_mmu_set_write_access(struct Memory *mem, bool enable)
+{
+    mem->write = enable;
+}
+
 static inline GbMemoryMapUnit *gb__mmu_alloc(void)
 {
     GbMemoryMapUnit *unit = (GbMemoryMapUnit*)malloc(sizeof(*unit));
@@ -113,9 +123,11 @@ static inline GbMemoryMapUnit *gb__mmu_alloc(void)
     mem = gb__mmu_alloc(); \
     GB_ASSERT(mem != NULL);
 
-#define GB_REGISTER_MEMORY(mem, cap, start, end) \
+#define GB_REGISTER_MEMORY(mem, cap, start, end, read, write) \
     mem = gb__mmu_alloc_memory(cap, start, end); \
     GB_ASSERT(mem != NULL); \
+    gb_mmu_set_read_access(mem, read);\
+    gb_mmu_set_write_access(mem, write);\
 
 GbMemoryMapUnitSection gb__mmu_get_section(const GbMemoryMap *mmu)
 {
@@ -127,18 +139,20 @@ void gb__mmu_set_section(GbMemoryMap *mmu, const GbMemoryMapUnitSection section)
     mmu->section = section;
 }
 
-void gb_mmu_init(GbMemoryMap *mmu)
+GbMemoryMap *gb_mmu_init(void)
 {
     // Initialize the Memory Management Unit
+    GbMemoryMap *mmu = malloc(sizeof(*mmu));
     mmu->section = GB_ILLEGAL_SECTION;
     GB_REGISTER_UNIT(mmu->unit);
-    GB_REGISTER_MEMORY(mmu->unit->eram, GB_ERAM_SIZE, GB_ERAM_START, GB_ERAM_END);
-    GB_REGISTER_MEMORY(mmu->unit->wram, GB_WRAM_SIZE, GB_WRAM_START, GB_WRAM_END);
-    GB_REGISTER_MEMORY(mmu->unit->vram, GB_VRAM_SIZE, GB_VRAM_START, GB_VRAM_END);
-    GB_REGISTER_MEMORY(mmu->unit->hram, GB_HRAM_SIZE, GB_HRAM_START, GB_HRAM_END);
-    GB_REGISTER_MEMORY(mmu->unit->oram, GB_ORAM_SIZE, GB_ORAM_START, GB_ORAM_END);
-    GB_REGISTER_MEMORY(mmu->unit->rom, GB_ROM_SIZE, GB_ROM_START, GB_ROM_END);
-    GB_REGISTER_MEMORY(mmu->unit->io, GB_IO_SIZE, GB_IO_START, GB_IO_END);
+    GB_REGISTER_MEMORY(mmu->unit->eram, GB_ERAM_SIZE, GB_ERAM_START, GB_ERAM_END, true, true);
+    GB_REGISTER_MEMORY(mmu->unit->wram, GB_WRAM_SIZE, GB_WRAM_START, GB_WRAM_END, true, true);
+    GB_REGISTER_MEMORY(mmu->unit->vram, GB_VRAM_SIZE, GB_VRAM_START, GB_VRAM_END, true, true);
+    GB_REGISTER_MEMORY(mmu->unit->hram, GB_HRAM_SIZE, GB_HRAM_START, GB_HRAM_END, true, true);
+    GB_REGISTER_MEMORY(mmu->unit->oram, GB_ORAM_SIZE, GB_ORAM_START, GB_ORAM_END, true, true);
+    GB_REGISTER_MEMORY(mmu->unit->rom, GB_ROM_SIZE, GB_ROM_START, GB_ROM_END, true, true);
+    GB_REGISTER_MEMORY(mmu->unit->io, GB_IO_SIZE, GB_IO_START, GB_IO_END, true, true);
+    return mmu;
 }
 
 static inline bool gb__mmu_validate_location(const int start, const int end, const int location)
@@ -176,6 +190,16 @@ static inline GbMemoryMapUnitSection gb__mmu_match_location_to_section(const int
     return section;
 }
 
+#define GB_MMU_WRITE_ON_CHECK(mem, location, value, section)\
+    do {\
+        if ((mem)->write) {\
+            if (!gb__mmu_write_memory(mem, location, value)) return false;\
+        } else {\
+            GB_ERROR("Write Access Memory Section \'%s\' Denied.", gb_mmu_section_string(section));\
+            return false;\
+        }\
+    } while (0)
+
 bool gb_mmu_write(GbMemoryMap *mmu, const int location, const int value)
 {
     const GbMemoryMapUnitSection section = gb__mmu_match_location_to_section(location);
@@ -183,37 +207,38 @@ bool gb_mmu_write(GbMemoryMap *mmu, const int location, const int value)
 
     switch (mmu->section) {
     case GB_ROM_SECTION: {
-        GB_ERROR("Write To ROM Section Forbidden");
-        return false;
+        GB_MMU_WRITE_ON_CHECK(mmu->unit->rom, location, value, section);
+        return true;
     }
 
     case GB_WRAM_SECTION: {
-        if (!gb__mmu_write_memory(mmu->unit->wram, location, value)) return false;
+        GB_MMU_WRITE_ON_CHECK(mmu->unit->wram, location, value, section);
         return true;
     }
 
     case GB_ERAM_SECTION: {
-        if (!gb__mmu_write_memory(mmu->unit->eram, location, value)) return false;
+        GB_MMU_WRITE_ON_CHECK(mmu->unit->eram, location, value, section);
         return true;
     }
 
     case GB_IO_SECTION: {
-        if (!gb__mmu_write_memory(mmu->unit->io, location, value)) return false;
+        GB_MMU_WRITE_ON_CHECK(mmu->unit->io, location, value, section);
         return true;
     }
 
     case GB_VRAM_SECTION: {
-        if (!gb__mmu_write_memory(mmu->unit->vram, location, value)) return false;
+        GB_MMU_WRITE_ON_CHECK(mmu->unit->vram, location, value, section);
         return true;
     }
 
     case GB_ORAM_SECTION: {
-        if (!gb__mmu_write_memory(mmu->unit->oram, location, value)) return false;
+        GB_MMU_WRITE_ON_CHECK(mmu->unit->oram, location, value, section);
         return true;
     }
 
     case GB_HRAM_SECTION: {
-        if (!gb__mmu_write_memory(mmu->unit->hram, location, value)) return false;
+        GB_MMU_WRITE_ON_CHECK(mmu->unit->wram, location, value, section);
+        GB_MMU_WRITE_ON_CHECK(mmu->unit->hram, location, value, section);
         return true;
     }
 
@@ -279,5 +304,7 @@ bool gb_mmu_destroy(GbMemoryMap *mmu) {
     if (!gb__mmu_dealloc_memory(mmu->unit->hram)) return false;
     free(mmu->unit);
     mmu->unit = NULL;
+    free(mmu);
+    mmu = NULL;
     return true;
 }

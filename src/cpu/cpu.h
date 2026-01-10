@@ -26,17 +26,18 @@ typedef enum GbRegisterType {
     GB_REG_PC,
 } GbRegisterType;
 
+#include "./opcodes.h"
 typedef enum GbOpcodes {
-    #define GB_OPCODE(c) GB_OPCODE_##c
-    #include "./opcodes.h"
-    #undef OPCODE
+    #define GB_OPCODE(c) GB_OPCODE_##c,
+    GB_OPCODES
+    #undef GB_OPCODE
 } GbOpcodes;
 
 typedef enum GbFlagBits {
-    GB_FLAG_Z,
-    GB_FLAG_N,
-    GB_FLAG_H,
-    GB_FLAG_C,
+    GB_FLAG_C = 4,
+    GB_FLAG_H = 5,
+    GB_FLAG_N = 6,
+    GB_FLAG_Z = 7,
 } GbFlagBits;
 
 typedef enum GbFlagState {
@@ -61,7 +62,12 @@ typedef enum GbLoadType {
 } GbLoadType;
 
 typedef enum GbAddressMode {
-    a,
+    GB_IND,
+    GB_ABS,
+    GB_IMM,
+    GB_REL,
+    GB_REG,
+    GB_IMP,
 } GbAddressMode;
 
 #define MAX_REGS_COUNT 10
@@ -86,17 +92,29 @@ typedef struct GbOpcodeEntry {
     GbFlagState state[MAX_FLAG_STATE_COUNT];
 } GbOpcodeEntry;
 
-GbCpuState gb_cpu_init_states(void);
+const char *gb_cpu_opcode_string(const GbOpcodes opcode);
+const char *gb_cpu_reg_string(const GbRegisterType type);
+const char *gb_cpu_addr_mode_string(const GbAddressMode mode);
+const char *gb_cpu_load_type_string(const GbLoadType type);
+const char *gb_cpu_flag_bit_string(const GbFlagBits bit);
+const char *gb_cpu_flag_state_string(const GbFlagState state);
+void gb_cpu_instruction_string(const GbOpcodeEntry *entry);
+
+#define GB_OP_LUT_ROWS 16 // Opcode LookUp Table Rows
+#define GB_OP_LUT_COLS 16 // Opcode LookUp Table Cols
+extern const GbOpcodeEntry GbOpcodeLookupTable[GB_OP_LUT_ROWS][GB_OP_LUT_COLS];
+
+GbCpuState gb_cpu_init_states(uint16_t PC);
+void gb_cpu_shutdown(GbCpuState *state);
 
 uint8_t  gb_cpu_fetch8 (GbCpuState *cpu);
 uint16_t gb_cpu_fetch16(GbCpuState *cpu);
-
-bool   gb_cpu_decode_instruction(GbCpuState *cpu, const uint8_t instruction);
+bool     gb_cpu_decode (GbCpuState *cpu);
 
 // TODO: Addressing Modes
 // TODO: Logging Instruction
 // TODO: private method to join resgister
 //       Based on the Resgister Array provided also
-//       uint16 gb__cpu_join_regs(GbCpustate *cpu, GbRegistertype[] regs, const int regs_count);
+//       uint16 gb__cpu_join_regs(GbCpustate *cpu, GbRegistertype regs[], const int regs_count);
 
 #endif // GB_CPU_H_

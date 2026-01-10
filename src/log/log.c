@@ -9,6 +9,8 @@ GbLogger Logger = {
     .gb_dir = NULL,
     .min_level = GB_LOG_INFO,
     .log_file = NULL,
+    .new_line = true,
+    .stats = true,
     .use_color = true,
     .use_timestamp = true,
     .log_to_file = false,
@@ -136,7 +138,11 @@ static void gb__log_extract_c_src_files(const char *path)
 
             const bool valid_c_file = gb__log_validate_c_file(file);
             if (valid_c_file) {
-                gb__log_set_src_file(Logger.files, file);
+                if (strlen(file) > 5) {
+                    free(file); // ignore large files lenghts
+                } else {
+                    gb__log_set_src_file(Logger.files, file);
+                }
             } else {
                 free(file);
             }
@@ -246,47 +252,64 @@ void gb_log(const GbLogLevel level, const char *file, const int line, const char
         if (Logger.use_color) {
             if (Logger.use_timestamp) {
                 fprintf(stderr, "%s[%s]%s %s[%s]%s %*s:%04d: ",
-                       GB_LOG_COLOR_TIME, timestamp, GB_LOG_COLOR_RESET,
-                       gb_log_level_color(level), gb_log_level_string(level),
-                        GB_LOG_COLOR_RESET, (int)max_file_len, filename, line);
-            } else {
-                fprintf(stream, "%s[%s]%s %*s:%04d: ",
+                GB_LOG_COLOR_TIME, timestamp, GB_LOG_COLOR_RESET,
                 gb_log_level_color(level), gb_log_level_string(level),
                 GB_LOG_COLOR_RESET, (int)max_file_len, filename, line);
+            } else {
+                if (Logger.stats) {
+                    fprintf(stream, "%s[%s]%s %*s:%04d: ",
+                    gb_log_level_color(level), gb_log_level_string(level),
+                    GB_LOG_COLOR_RESET, (int)max_file_len, filename, line);
+                } else {
+                    ; // Do Nothing
+                }
             }
         } else {
             if (Logger.use_timestamp) {
                 fprintf(stream, "[%s] [%s] %*s:%04d: ",
-                       timestamp, gb_log_level_string(level),
-                       (int)max_file_len, filename, line);
+                timestamp, gb_log_level_string(level),
+                (int)max_file_len, filename, line);
             } else {
-                fprintf(stream, "[%s] %*s:%04d: ",
-                       gb_log_level_string(level), (int)max_file_len, filename, line);
+                if (Logger.stats) {
+                    fprintf(stream, "[%s] %*s:%04d: ",
+                    gb_log_level_string(level), (int)max_file_len, filename, line);
+                } else {
+                    ; // Do Nothing
+                }
             }
         }
 
         va_start(args, fmt);
         vfprintf(stream, fmt, args);
         va_end(args);
-        fprintf(stream, "\n");
+        if (Logger.new_line) {
+            fprintf(stream, "\n");
+        }
     }
 
     // Log to file
     if (Logger.log_to_file && Logger.log_file != NULL) {
         if (Logger.use_timestamp) {
             fprintf(Logger.log_file, "[%s] [%s] %*s:%04d: ",
-                   timestamp, gb_log_level_string(level), (int)max_file_len, filename, line);
+            timestamp, gb_log_level_string(level), (int)max_file_len, filename, line);
         } else {
             fprintf(Logger.log_file, "[%s] %*s:%04d: ",
-                   gb_log_level_string(level), (int)max_file_len,filename, line);
+            gb_log_level_string(level), (int)max_file_len,filename, line);
         }
 
         va_start(args, fmt);
         vfprintf(Logger.log_file, fmt, args);
         va_end(args);
-        fprintf(Logger.log_file, "\n");
+        if (Logger.new_line) {
+            fprintf(Logger.log_file, "\n");
+        }
         fflush(Logger.log_file);
     }
+}
+
+void gb_log_set_new_line(bool set)
+{
+    Logger.new_line = set;
 }
 
 void gb_log_set_level(const GbLogLevel level)
@@ -302,4 +325,9 @@ void gb_log_set_color(bool enable)
 void gb_log_set_timestamp(bool enable)
 {
     Logger.use_timestamp = enable;
+}
+
+void gb_log_set_stats(bool enable)
+{
+    Logger.stats = enable;
 }

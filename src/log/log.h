@@ -28,6 +28,8 @@ typedef struct GbLogger {
     GbLogLevel min_level;
     FILE *log_file;
     size_t max_file_len;
+    bool new_line;
+    bool stats;
     bool use_color;
     bool use_timestamp;
     bool log_to_file;
@@ -57,6 +59,8 @@ void gb_log_init(const char *gb_dir, const char *filename, GbLogLevel min_level)
 void gb_log_shutdown(void);
 void gb_log(GbLogLevel level, const char *file, int line, const char *fmt, ...);
 void gb_log_set_level(GbLogLevel level);
+void gb_log_set_new_line(bool set);
+void gb_log_set_stats(bool enable);
 void gb_log_set_color(bool enable);
 void gb_log_set_timestamp(bool enable);
 

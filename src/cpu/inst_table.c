@@ -1,9 +1,6 @@
 #include "./cpu.h"
 
-#define INST_LUT_ROWS 16 // LookUp Table Rows
-#define INST_LUT_COLS 16 // LookUp Table Cols
-
-const GbOpcodeEntry inst_lookup_table[INST_LUT_ROWS][INST_LUT_COLS] = {
+const GbOpcodeEntry GbOpcodeLookupTable[GB_OP_LUT_ROWS][GB_OP_LUT_COLS] = {
     // Row 0x0
     {
         {

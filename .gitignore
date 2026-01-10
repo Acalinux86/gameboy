@@ -9,3 +9,9 @@ todos.md
 
 # Gameboy Logs
 *.log
+
+# Gameboy Rom Generator
+gen.py
+
+# Gameboy Roms
+*.gb
