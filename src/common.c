@@ -1,5 +1,7 @@
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 unsigned char *read_file(const char *filepath, size_t *file_size)
 {
