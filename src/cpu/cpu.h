@@ -74,21 +74,27 @@ typedef enum GbAddressMode {
 #define MAX_FLAG_BIT_COUNT 4
 #define MAX_FLAG_STATE_COUNT 4
 
+typedef union GbOperand {
+    struct {
+        GbRegisterType regs[MAX_REGS_COUNT];
+        int regs_count;
+    } gb_regs;
+    GbLoadType type;
+} GbOperand;
+
 // TODO: Document this Struct
 typedef struct GbOpcodeEntry {
     GbOpcodes opcode;
-    GbLoadType type;
     GbAddressMode mode;
 
-    GbRegisterType regs[MAX_REGS_COUNT];
-    int regs_count;
+    GbOperand src;
+    GbOperand dst;
 
     int bytes;
     int t_states;
 
     GbFlagBits flags[MAX_FLAG_BIT_COUNT];
     int flag_count;
-
     GbFlagState state[MAX_FLAG_STATE_COUNT];
 } GbOpcodeEntry;
 
