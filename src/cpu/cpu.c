@@ -146,7 +146,7 @@ states:
     gb_log_set_new_line(true);
 }
 
-GbCpuState gb_cpu_init_states(uint16_t PC)
+GbCpuState gb_cpu_init_states(const uint16_t PC)
 {
     GbMemoryMap *mmu = gb_mmu_init();
     GbCpuState state = {0};
@@ -196,7 +196,7 @@ uint8_t gb_cpu_join_nibbles(const Nibbles nibble)
 bool gb_cpu_decode(GbCpuState *cpu)
 {
     const uint8_t data = gb_cpu_fetch8(cpu);
-    Nibbles nibble = gb_cpu_split_u8(data);
+    const Nibbles nibble = gb_cpu_split_u8(data);
 
     const uint8_t upper = nibble.upper;
     const uint8_t lower = nibble.lower;
