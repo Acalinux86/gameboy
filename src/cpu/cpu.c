@@ -1,6 +1,6 @@
 #include "./cpu.h"
 #include "../log/log.h"
-#include "./inst_table.c"
+#include "./opcode_tables.c"
 #include "./opcodes.h"
 
 const char *gb_cpu_opcode_string(const GbOpcodes opcode)
@@ -80,24 +80,13 @@ const char *gb_cpu_flag_state_string(const GbFlagState state)
 
 void gb_cpu_instruction_string(const GbOpcodeEntry *entry)
 {
-    // GbOpcodes opcode;
-    // GbLoadType type;
-    // GbAddressMode mode;
-    // GbRegisterType regs[MAX_REGS_COUNT];
-    // int regs_count;
-    // int bytes;
-    // int t_states;
-    // GbFlagBits flags[MAX_FLAG_BIT_COUNT];
-    // int flag_count;
-    // GbFlagState state[MAX_FLAG_STATE_COUNT];
-
     gb_log_set_new_line(false);
-    GB_INFO("Instruction: {\n    Opcode: %s, Load Type: %s, Address Mode: %s, Bytes: %d, Timer Count: %d, Registers Affected: ",
-            gb_cpu_opcode_string(entry->opcode), gb_cpu_load_type_string(entry->type),
+    GB_INFO("Instruction: {\n    Opcode: %s, Dst: %s, Src: %s, Bytes: %d, Timer Count: %d, Registers Affected: ",
+            gb_cpu_opcode_string(entry->opcode), gb_cpu_load_type_string(),
             gb_cpu_addr_mode_string(entry->mode), entry->bytes, entry->t_states
     );
 
-    if (entry->regs_count == 0) {
+    if (entry->gb_regs.regs_count == 0) {
         printf("No Registers Affected, ");
         goto flags;
     } else {
@@ -215,7 +204,7 @@ bool gb_cpu_decode(GbCpuState *cpu)
     case GB_OPCODE_INC:
         GB_INFO("INC Detected");
         return true;
-    case GB_OPCODE_RLC:
+    case GB_OPCODE_RLCA:
         GB_INFO("RLC Detected");
         return true;
     case GB_OPCODE_ADD:
