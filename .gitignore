@@ -14,7 +14,7 @@ todos.md
 gen.py
 
 # Gameboy Roms
-*.gb
+roms/
 
 # Generated Files
 src/cpu/opcode_tables.c
