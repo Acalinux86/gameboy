@@ -15,3 +15,7 @@ gen.py
 
 # Gameboy Roms
 *.gb
+
+# Generated Files
+src/cpu/opcode_tables.h
+src/cpu/opcodes.h
