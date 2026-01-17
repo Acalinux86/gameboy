@@ -38,17 +38,17 @@ class LineNo:
     def __int__(self):
         return inspect.currentframe().f_back.f_back.f_lineno
 
-FILE = fname = os.path.basename(__file__)
+FILE = os.path.basename(__file__)
 LINE = LineNo()
 
 def output_stats():
     return "/*%s:%d*/" % (FILE, int(LINE))
 
 def generate_directive(directive):
-    return "#include \"%s\"    %s\n\n" % (directive, output_stats())
+    return "\n#include \"%s\"    %s\n\n" % (directive, output_stats())
 
 def generate_comment(comment):
-    return "// %s %s\n" % (comment, output_stats())
+    return "// %s %s" % (comment, output_stats())
 
 def generate_macro(name, value):
     return "#define %s %s %s\n" % (name.upper(), value, output_stats())
@@ -85,9 +85,8 @@ def generate_operand_from_regs(operands, operand_type):
     buf = "%s.%s = {\n" % (' '*(spaces), operand_type)
     buf += "%s.gb_regs = {\n" % (' '*(spaces+tab))
     buf += "%s.regs = {" % (' '*(spaces+tab+tab))
-    if operands:
-        length = len(operands)
-        assert length > 0
+    length = len(operands)
+    if length > 0:
         for i in range(0, length):
             if operands[i] in REGISTER_LIST:
                 if i + 1 == length:
@@ -120,7 +119,7 @@ def generate_operand_from_loads(operands, operand_type):
     return buf
 
 def generate_epilogue():
-    return "}; %s\n" % output_stats()
+    return "};  %s %s\n" % (generate_comment("%s ends here" % (OPCODE_LUT_NAME)), output_stats())
 
 # Status here is prefixed or unprefixed
 def extract_opcode_from_dict(dictionary, index, status):
@@ -145,10 +144,17 @@ def extract_operand_from_dict_with_list_index(dictionary, index, list_index, sta
     else:
         return []
 
+def is_numeric(num):
+    try:
+        float(num)
+        return True
+    except ValueError:
+        return False
+
 def parse_operand(operand):
     loads_list = []
     regs_list = []
-
+    num_list = []
     if operand:
         for key, value in operand.items():
             if key == "name":
@@ -156,9 +162,11 @@ def parse_operand(operand):
                     loads_list.append(value)
                 elif value in REGISTER_LIST:
                     regs_list.append(value)
+                elif is_numeric(value):
+                    num_list.append(value)
                 else:
                     if len(value) > 1:
-                        for i in [*value]:
+                        for i in list(value):
                             regs_list.append(i)
             elif key == "bytes":
                 pass # Do Nothing
@@ -251,14 +259,12 @@ def generate_opcodes_header_file_epilogue(filename):
     buf =  "#endif // GB_%s_H_ %s\n" % (fname.upper(), output_stats())
     return buf
 
-def generate_opcodes_x_macros(filename):
-    fpo = open(filename, "w")
+def generate_opcodes_x_macros(fpo):
     comment = "This file is generated automatically. DO NOT MODIFY THIS FILE!!! %s" % output_stats()
     fpo.write(generate_comment(comment + "\n"))
     fpo.write(generate_opcodes_header_file_prologue("opcodes.h"))
     fpo.write(generate_opcodes_header_file_body(list(OPCODES_LIST)))
     fpo.write(generate_opcodes_header_file_epilogue("opcodes.h"))
-    fpo.close()
 
 def generate_and_write_operand(fpw, dictionary, index, status, list_index):
     operands = extract_operand_from_dict_with_list_index(dictionary, index, list_index, status)
@@ -279,9 +285,16 @@ def generate_and_write_operand(fpw, dictionary, index, status, list_index):
         fpw.write(generate_operand_from_loads(loads, operand_type))
 
 def main():
-    read_file = "Opcodes.json"
-    write_file = "opcode_tables.c"
+    fullpath = os.path.abspath(__file__)
+    dirpath = os.path.dirname(fullpath)
+    opjson_path = os.path.basename("Opcodes.json")
+    read_file = os.path.join(dirpath, opjson_path)
+    if not os.path.lexists(read_file):
+        print("Path Does Not Exist")
+        return 1
+    print(read_file)
 
+    write_file = os.path.join(dirpath, "opcode_tables.c")
     fpr = open(read_file, "r")
     loaded_json = json.load(fpr)
     fpr.close()
@@ -322,14 +335,14 @@ def main():
             fpw.write(generate_col_epilogue(j))
         fpw.write(generate_row_epilogue(i))
     fpw.write(generate_epilogue())
+    print("generated %s." % (write_file))
     fpw.close()
 
-    generate_opcodes_x_macros("opcodes.h")
-    #print("extracted immediate mode: ", extract_addr_mode_from_dict(j, index, "unprefixed"))
-    #print("extracted flags: ", extract_flags_from_dict(j, index, "unprefixed"))
-    #
-    #flags = extract_flags_from_dict(j, index, "unprefixed")
-    #print("Parsed states: ", parse_flags_states(flags))
+    opcode_macro = os.path.join(dirpath, "opcodes.h")
+    fpo = open(opcode_macro, "w")
+    generate_opcodes_x_macros(fpo)
+    fpo.close()
+    print("generated %s." % (opcode_macro))
     return 0
 
 if __name__ == "__main__":
