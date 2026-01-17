@@ -17,7 +17,7 @@ gen.py
 *.gb
 
 # Generated Files
-src/cpu/opcode_tables.h
+src/cpu/opcode_tables.c
 src/cpu/opcodes.h
 
 # python caches
