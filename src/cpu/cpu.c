@@ -1,7 +1,7 @@
-#include "./cpu.h"
-#include "../log/log.h"
-#include "./opcode_tables.c"
-#include "./opcodes.h"
+#include "cpu.h"
+#include "log.h"
+#include "opcode_tables.c"
+#include "opcodes.h"
 
 const char *gb_cpu_opcode_string(const GbOpcodes opcode)
 {
@@ -46,7 +46,6 @@ const char *gb_cpu_addr_mode_string(const GbAddressMode mode)
 const char *gb_cpu_load_type_string(const GbLoadType type)
 {
     switch (type) {
-    case GB_TYPE_R:   return "No Load";
     case GB_TYPE_N8:  return "immediate 8-bit data";
     case GB_TYPE_N16: return "immediate LE 16-bit data";
     case GB_TYPE_A8:  return "8-bit unsigned address";
@@ -76,63 +75,6 @@ const char *gb_cpu_flag_state_string(const GbFlagState state)
     case GB_UPT: return "Updated => based on the operation performed";
     default:     return "Unknown Flag State";
     }
-}
-
-void gb_cpu_instruction_string(const GbOpcodeEntry *entry)
-{
-    gb_log_set_new_line(false);
-    GB_INFO("Instruction: {\n    Opcode: %s, Dst: %s, Src: %s, Bytes: %d, Timer Count: %d, Registers Affected: ",
-            gb_cpu_opcode_string(entry->opcode), gb_cpu_load_type_string(),
-            gb_cpu_addr_mode_string(entry->mode), entry->bytes, entry->t_states
-    );
-
-    if (entry->gb_regs.regs_count == 0) {
-        printf("No Registers Affected, ");
-        goto flags;
-    } else {
-        printf("[");
-    }
-
-    for (int i = 0; i < entry->regs_count; ++i) {
-        if (i + 1 == entry->regs_count) {
-            printf("\'%s\'", gb_cpu_reg_string(entry->regs[i]));
-        } else {
-            printf("\'%s\',", gb_cpu_reg_string(entry->regs[i]));
-        }
-    }
-    printf("], Flags Bits Affected: ");
-
-flags:
-    if (entry->flag_count == 0) {
-        printf("0, Flag Bit States: [");
-        goto states;
-    } else {
-        printf("[");
-    }
-
-    for (int i = 0; i < entry->flag_count; ++i) {
-        if (i + 1 == entry->flag_count) {
-            printf("\'%s\'", gb_cpu_flag_bit_string(entry->flags[i]));
-        } else {
-            printf("\'%s\',", gb_cpu_flag_bit_string(entry->flags[i]));
-        }
-    }
-    printf("], Flag Bit States: [");
-
-states:
-    const char bits[4] = {'Z', 'N', 'H', 'C'};
-    for (int i = 0; i < MAX_FLAG_STATE_COUNT; ++i) {
-        if (i + 1 == MAX_FLAG_STATE_COUNT) {
-            printf("\'%s\'", gb_cpu_flag_state_string(entry->state[i]));
-            printf("(%c) ", bits[i]);
-        } else {
-            printf("\'%s\'", gb_cpu_flag_state_string(entry->state[i]));
-            printf("(%c), ", bits[i]);
-        }
-    }
-    printf("]\n");
-    printf("}\n");
-    gb_log_set_new_line(true);
 }
 
 GbCpuState gb_cpu_init_states(const uint16_t PC)
@@ -189,30 +131,15 @@ bool gb_cpu_decode(GbCpuState *cpu)
 
     const uint8_t upper = nibble.upper;
     const uint8_t lower = nibble.lower;
-    const GbOpcodeEntry entry = GbOpcodeLookupTable[upper][lower];
+    GbOpcodeEntry entry = GbOpcodeLookupTable[upper][lower];
+
     switch (entry.opcode)
     {
     case GB_OPCODE_NOP:
-        GB_INFO("NOP Detected");
-        return true;
-    case GB_OPCODE_LD:
-        GB_INFO("LD Detected");
-        return true;
-    case GB_OPCODE_DEC:
-        GB_INFO("DEC Detected");
-        return true;
-    case GB_OPCODE_INC:
-        GB_INFO("INC Detected");
-        return true;
-    case GB_OPCODE_RLCA:
-        GB_INFO("RLC Detected");
-        return true;
-    case GB_OPCODE_ADD:
-        GB_INFO("ADD Detected");
+        gb_cpu_fetch8(cpu);
         return true;
     default:
-        gb_cpu_instruction_string(&entry);
-        GB_ABORT("Unimplemented Opcode");
+        GB_ABORT("Unimplemented Opcode: %s", gb_cpu_opcode_string(entry.opcode));
     }
     // Unreachable
 }

@@ -1,6 +1,6 @@
-#include "./log/log.h"
-#include "./mmu/mmu.h"
-#include "./cpu/cpu.h"
+#include "log.h"
+#include "mmu.h"
+#include "cpu.h"
 #include "common.c"
 
 int main(void)

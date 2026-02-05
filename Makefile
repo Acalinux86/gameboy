@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS= -Wall -Wextra -Wswitch-enum -std=c99 -ggdb -MMD -Wno-format-truncation
+CFLAGS= -Wall -Wextra -std=c99 -ggdb -MMD -Wno-format-truncation
 LIBS=-lm
 
 BUILD=build
@@ -38,16 +38,16 @@ $(LUTS) $(OXM): $(CPU)/codegen.py $(CPU)/Opcodes.json | $(OBJ_CPU)
 	python3 src/cpu/codegen.py
 
 $(OBJ)/gb.o: $(SRC)/gb.c $(OXM) | $(OBJ)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -I$(LOG) -I$(MMU) -I$(CPU) -c $< -o $@
 
 $(OBJ_MMU)/mmu.o: $(MMU)/mmu.c | $(OBJ_MMU)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -I$(LOG) -c $< -o $@
 
 $(OBJ_LOG)/log.o: $(LOG)/log.c | $(OBJ_LOG)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_CPU)/cpu.o: $(CPU)/cpu.c $(LUTS) $(OXM) | $(OBJ_CPU)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -I$(LOG) -c $< -o $@
 
 $(TARGET): $(OBJS) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS)

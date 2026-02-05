@@ -26,7 +26,7 @@ typedef enum GbRegisterType {
     GB_REG_PC,
 } GbRegisterType;
 
-#include "./opcodes.h"
+#include "opcodes.h"
 typedef enum GbOpcodes {
     #define GB_OPCODE(c) GB_OPCODE_##c,
     GB_OPCODES
@@ -53,7 +53,6 @@ typedef struct GbCpuState {
 } GbCpuState;
 
 typedef enum GbLoadType {
-    GB_TYPE_R, // No Immediate loads or access
     GB_TYPE_N8,
     GB_TYPE_N16,
     GB_TYPE_A8,
@@ -74,12 +73,22 @@ typedef enum GbAddressMode {
 #define MAX_FLAG_BIT_COUNT 4
 #define MAX_FLAG_STATE_COUNT 4
 
-typedef union GbOperand {
+typedef union GbOperandData {
     struct {
         GbRegisterType regs[MAX_REGS_COUNT];
         int regs_count;
     } gb_regs;
     GbLoadType type;
+} GbOperandData;
+
+typedef enum GbOperandType {
+    OPR_TYPE_LOAD,
+    OPR_TYPE_REG,
+} GbOperandType;
+
+typedef struct GbOperand {
+    GbOperandData data;
+    GbOperandType type;
 } GbOperand;
 
 // TODO: Document this Struct
