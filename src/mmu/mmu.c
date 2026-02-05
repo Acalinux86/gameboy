@@ -1,7 +1,7 @@
 #include "./mmu.h"
 
 #include <stdlib.h>
-#include "../log/log.h"
+#include "log.h"
 
 const char *gb_mmu_section_string(const GbMemoryMapUnitSection section)
 {
@@ -142,7 +142,7 @@ void gb__mmu_set_section(GbMemoryMap *mmu, const GbMemoryMapUnitSection section)
 GbMemoryMap *gb_mmu_init(void)
 {
     // Initialize the Memory Management Unit
-    GbMemoryMap *mmu = malloc(sizeof(*mmu));
+    GbMemoryMap *mmu = (GbMemoryMap*)malloc(sizeof(*mmu));
     mmu->section = GB_ILLEGAL_SECTION;
     GB_REGISTER_UNIT(mmu->unit);
     GB_REGISTER_MEMORY(mmu->unit->eram, GB_ERAM_SIZE, GB_ERAM_START, GB_ERAM_END, true, true);
@@ -161,14 +161,14 @@ static inline bool gb__mmu_validate_location(const int start, const int end, con
 }
 
 const int GbPhysicalAddressSpace[GB_ADDRESS_SPACES_COUNT][2] = {
-    [GB_ILLEGAL_SECTION] = {GB_ILLEGAL_ADDR, GB_ILLEGAL_ADDR},
-    [GB_ROM_SECTION]     = {GB_ROM_START   , GB_ROM_END},
-    [GB_IO_SECTION]      = {GB_IO_START    , GB_IO_END},
-    [GB_VRAM_SECTION]    = {GB_VRAM_START  , GB_VRAM_END},
-    [GB_WRAM_SECTION]    = {GB_WRAM_START  , GB_WRAM_END},
-    [GB_ERAM_SECTION]    = {GB_ERAM_START  , GB_ERAM_END},
-    [GB_ORAM_SECTION]    = {GB_ORAM_START  , GB_ORAM_END},
-    [GB_HRAM_SECTION]    = {GB_HRAM_START  , GB_HRAM_END},
+    /*[GB_ILLEGAL_SECTION] = */ {GB_ILLEGAL_ADDR, GB_ILLEGAL_ADDR},
+    /*[GB_ROM_SECTION]     = */ {GB_ROM_START   , GB_ROM_END},
+    /*[GB_IO_SECTION]      = */ {GB_IO_START    , GB_IO_END},
+    /*[GB_VRAM_SECTION]    = */ {GB_VRAM_START  , GB_VRAM_END},
+    /*[GB_WRAM_SECTION]    = */ {GB_WRAM_START  , GB_WRAM_END},
+    /*[GB_ERAM_SECTION]    = */ {GB_ERAM_START  , GB_ERAM_END},
+    /*[GB_ORAM_SECTION]    = */ {GB_ORAM_START  , GB_ORAM_END},
+    /*[GB_HRAM_SECTION]    = */ {GB_HRAM_START  , GB_HRAM_END},
 };
 
 static inline GbMemoryMapUnitSection gb__mmu_match_location_to_section(const int loc)
@@ -180,7 +180,7 @@ static inline GbMemoryMapUnitSection gb__mmu_match_location_to_section(const int
         const int end   = GbPhysicalAddressSpace[i][1];
         const bool valid = gb__mmu_validate_location(start, end, loc);
         if (valid) {
-            section = i;
+            section = (GbMemoryMapUnitSection)i;
             break;
         } else {
             continue;
