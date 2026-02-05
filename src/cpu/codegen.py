@@ -54,10 +54,10 @@ def generate_cycles(cycles):
     buf = "%s.t_states = %s, %s\n" % (' '*12, cycles[0], output_stats())
     return buf
 
-def generate_operand_from_regs(operands, operand_type):
-    spaces = 12
+def generate_operand_from_regs(operands):
+    spaces = 16
     tab = 4
-    buf = "%s.%s = {\n" % (' '*(spaces), operand_type)
+    buf = "%s.data = { %s\n" % (' '*(spaces), output_stats())
     buf += "%s.gb_regs = {\n" % (' '*(spaces+tab))
     buf += "%s.regs = {" % (' '*(spaces+tab+tab))
     length = len(operands)
@@ -78,10 +78,10 @@ def generate_operand_from_regs(operands, operand_type):
     buf += "%s}, %s\n" % (' '*(spaces), output_stats())
     return buf
 
-def generate_operand_from_loads(operands, operand_type):
-    spaces = 12
+def generate_operand_from_loads(operands):
+    spaces = 16
     tab = 4
-    buf = "%s.%s = {\n" % (' '*(spaces), operand_type)
+    buf = "%s.data = { %s\n" % (' '*(spaces), output_stats())
     buf += "%s.type = " % (" "*(spaces+tab))
     if operands:
         if operands[0] in LOAD_TYPES:
@@ -111,8 +111,11 @@ def extract_cycles_from_dict(dictionary, index, status):
 
 def extract_operand_from_dict_with_list_index(dictionary, index, list_index, status):
     operands = dictionary[status][index]["operands"]
+    length = len(operands)
     if operands:
-        if len(operands) > 1:
+        if list_index >= length:
+            return []
+        elif length > 0:
             return operands[list_index]
         else:
             return []
@@ -148,15 +151,6 @@ def parse_operand(operand):
             elif key == "immediate":
                 pass # Do Nothing
     return regs_list, loads_list
-
-def extract_addr_mode_from_dict(dictionary, index, status):
-    mode = dictionary[status][index]["immediate"]
-    return mode
-
-def generate_addr_mode(mode):
-    string = "IMM" if mode == True else "IMP"
-    buf = "%s.mode = GB_%s, %s\n" % (' '*12, string, output_stats())
-    return buf
 
 def extract_flags_from_dict(dictionary, index, status):
     _flags = dictionary[status][index]["flags"]
@@ -209,7 +203,8 @@ def generate_states(states):
 
 
 def construct_index(row, col):
-    return "0x%X%X" % (row, col)
+    index = "0x%02X" % (((row*16) + col))
+    return index
 
 def generate_opcodes_header_file_prologue(filename):
     fname = "".join(filename.split('.h'))
@@ -253,11 +248,24 @@ def generate_and_write_operand(fpw, dictionary, index, status, list_index):
     else:
         assert 0 ,"unreachable"
 
+    spaces = 12
+    tab = 4
     if len(regs) > 0:
-        fpw.write(generate_operand_from_regs(regs, operand_type))
+        buf = "%s.%s = { %s\n" % (' '*spaces, operand_type, output_stats())
+        buf += "%s.type = OPR_TYPE_REG, %s\n" % (' '*(spaces+tab), output_stats())
+        fpw.write(buf)
+        fpw.write(generate_operand_from_regs(regs))
+        buf = "%s}, %s\n" % (' '*spaces, output_stats())
+        fpw.write(buf)
 
     if len(loads) > 0:
-        fpw.write(generate_operand_from_loads(loads, operand_type))
+        buf = "%s.%s = { %s\n" % (' '*spaces, operand_type, output_stats())
+        buf += "%s.type = OPR_TYPE_LOAD, %s\n" % (' '*(spaces+tab), output_stats())
+        fpw.write(buf)
+        fpw.write(generate_operand_from_loads(loads))
+        buf = "%s}, %s\n" % (' '*spaces, output_stats())
+        fpw.write(buf)
+
 
 def main():
     fullpath = os.path.abspath(__file__)
@@ -295,9 +303,6 @@ def main():
 
             cycles = extract_cycles_from_dict(loaded_json, index, UNPREFIXED_STATUS);
             fpw.write(generate_cycles(cycles))
-
-            mode = extract_addr_mode_from_dict(loaded_json, index, UNPREFIXED_STATUS)
-            fpw.write(generate_addr_mode(mode))
 
             generate_and_write_operand(fpw, loaded_json, index, UNPREFIXED_STATUS, 0)
             generate_and_write_operand(fpw, loaded_json, index, UNPREFIXED_STATUS, 1)
