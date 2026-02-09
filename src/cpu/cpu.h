@@ -41,10 +41,10 @@ typedef enum GbFlagBits {
 } GbFlagBits;
 
 typedef enum GbFlagState {
-    GB_DEF, // Left-Untouched
-    GB_RST, // Reset => 0
-    GB_SET, // Set => 1
-    GB_UPT, // Updated => based on the operation performed
+    GB_DEF,   /* Left-Untouched                              */
+    GB_RST,   /* Reset => 0                                  */
+    GB_SET,   /* Set => 1                                    */
+    GB_UPT,   /* Updated => based on the operation performed */
 } GbFlagState;
 
 typedef struct GbCpuState {
@@ -113,10 +113,9 @@ const char *gb_cpu_addr_mode_string(const GbAddressMode mode);
 const char *gb_cpu_load_type_string(const GbLoadType type);
 const char *gb_cpu_flag_bit_string(const GbFlagBits bit);
 const char *gb_cpu_flag_state_string(const GbFlagState state);
-void gb_cpu_instruction_string(const GbOpcodeEntry *entry);
 
-#define GB_OP_LUT_ROWS 16 // Opcode LookUp Table Rows
-#define GB_OP_LUT_COLS 16 // Opcode LookUp Table Cols
+#define GB_OP_LUT_ROWS 16 /* Opcode LookUp Table Rows */
+#define GB_OP_LUT_COLS 16 /* Opcode LookUp Table Cols */
 extern const GbOpcodeEntry GbOpcodeLookupTable[GB_OP_LUT_ROWS][GB_OP_LUT_COLS];
 
 GbCpuState gb_cpu_init_states(uint16_t PC);
@@ -126,10 +125,15 @@ uint8_t  gb_cpu_fetch8 (GbCpuState *cpu);
 uint16_t gb_cpu_fetch16(GbCpuState *cpu);
 bool     gb_cpu_decode (GbCpuState *cpu);
 
+static uint16_t gb_cpu_join_af(const GbCpuState *cpu);
+static uint16_t gb_cpu_join_bc(const GbCpuState *cpu);
+static uint16_t gb_cpu_join_hl(const GbCpuState *cpu);
+static uint16_t gb_cpu_join_de(const GbCpuState *cpu);
+
+/* Opcode Functions */
+void gb_cpu_ld(const GbCpuState *cpu);
+
 // TODO: Addressing Modes
 // TODO: Logging Instruction
-// TODO: private method to join resgister
-//       Based on the Resgister Array provided also
-//       uint16 gb__cpu_join_regs(GbCpustate *cpu, GbRegistertype regs[], const int regs_count);
 
 #endif // GB_CPU_H_

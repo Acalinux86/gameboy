@@ -126,20 +126,39 @@ uint8_t gb_cpu_join_nibbles(const Nibbles nibble)
 
 bool gb_cpu_decode(GbCpuState *cpu)
 {
-    const uint8_t data = gb_cpu_fetch8(cpu);
-    const Nibbles nibble = gb_cpu_split_u8(data);
-
-    const uint8_t upper = nibble.upper;
-    const uint8_t lower = nibble.lower;
-    GbOpcodeEntry entry = GbOpcodeLookupTable[upper][lower];
+    uint8_t data = gb_cpu_fetch8(cpu);
+    uint8_t upper = (data >> 4) & 0xF;
+    uint8_t lower = data & 0xF;
+    const GbOpcodeEntry entry = GbOpcodeLookupTable[upper][lower];
 
     switch (entry.opcode)
     {
     case GB_OPCODE_NOP:
         gb_cpu_fetch8(cpu);
-        return true;
+        break;
     default:
-        GB_ABORT("Unimplemented Opcode: %s", gb_cpu_opcode_string(entry.opcode));
+        GB_ERROR("Unimplemented Opcode: %s", gb_cpu_opcode_string(entry.opcode));
+        return false;
     }
-    // Unreachable
+    return true;
+}
+
+static uint16_t gb_cpu_join_af(const GbCpuState *cpu)
+{
+    return cpu->regs.A << 8 | cpu->regs.F;
+}
+
+static uint16_t gb_cpu_join_bc(const GbCpuState *cpu)
+{
+    return cpu->regs.B << 8 | cpu->regs.C;
+}
+
+static uint16_t gb_cpu_join_hl(const GbCpuState *cpu)
+{
+    return cpu->regs.H << 8 | cpu->regs.L;
+}
+
+static uint16_t gb_cpu_join_de(const GbCpuState *cpu)
+{
+    return cpu->regs.D << 8 | cpu->regs.E;
 }
