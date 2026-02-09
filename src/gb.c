@@ -13,7 +13,7 @@ int main(void)
 
     GbCpuState state = gb_cpu_init_states(0xC000);
     size_t size = 0;
-    const char *file_path = "test.gb";
+    const char *file_path = "tests/roms/test.gb";
     unsigned char *buffer = read_file(file_path, &size);
     for (int i = 0; i < (int)size; ++i) {
         if (!gb_mmu_write(state.mmu, state.regs.PC + i, buffer[i])) {
