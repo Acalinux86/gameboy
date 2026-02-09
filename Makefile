@@ -1,4 +1,4 @@
-CC=gcc
+CC=cc
 CFLAGS= -Wall -Wextra -std=c99 -ggdb -MMD -Wno-format-truncation
 LIBS=-lm
 
