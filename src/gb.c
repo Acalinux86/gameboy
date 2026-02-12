@@ -1,34 +1,36 @@
-#include "log.h"
 #include "mmu.h"
-#include "cpu.h"
+#include "sm83_cpu.h"
 #include "common.c"
 
 int main(void)
 {
-    const char *gb_dir = "./src";
-    const char *log_file_path = "gameboy.log";
-    gb_log_init(gb_dir, log_file_path, GB_LOG_INFO);
-    gb_log_set_timestamp(false);
-    gb_log_set_stats(false);
+    struct SM83CPU cpu = {0};
+    int ret = sm83_cpu_init(&cpu, 0xC000);
+    if (ret != 0) return 1;
 
-    GbCpuState state = gb_cpu_init_states(0xC000);
+    /* Emit Disassembly */
+    sm83_cpu_emit_disasm(&cpu, 1);
+
     size_t size = 0;
     const char *file_path = "tests/roms/test.gb";
     unsigned char *buffer = read_file(file_path, &size);
+
     for (int i = 0; i < (int)size; ++i) {
-        if (!gb_mmu_write(state.mmu, state.regs.PC + i, buffer[i])) {
+        if (!gb_mmu_write(cpu.mmu, cpu.registers.pc + i, buffer[i])) {
             free(buffer);
             return 1;
         }
-        printf("0X%X\n", buffer[i]);
-    }
-    while (1) {
-        gb_cpu_decode(&state);
-        if (state.regs.PC >= 0xC000 + size) break;
     }
 
-    gb_log_shutdown();
+    while (1) {
+        sm83_decode(&cpu);
+        if (cpu.registers.pc >= 0xC000 + size) break;
+    }
+
+    FILE *fp = stdout;
+    sm83_dump_disasm(&cpu.disasm, fp);
+
     free(buffer);
-    gb_cpu_shutdown(&state);
+    sm83_cpu_shutdown(&cpu);
     return 0;
 }
