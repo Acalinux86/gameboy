@@ -24,6 +24,8 @@
 #define GB_ERAM_END     0xBFFF
 #define GB_WRAM_START   0xC000
 #define GB_WRAM_END     0xDFFF
+#define GB_ECHO_START   0xE000
+#define GB_ECHO_END     0xFDFF
 #define GB_ORAM_START   0xFE00
 #define GB_ORAM_END     0xFE9F
 #define GB_IO_START     0xFF00
@@ -33,18 +35,17 @@
 
 struct Memory {
     uint8_t *data;
-    int count, capacity;
-    int start, end;
+    int start, end, capacity;
     bool write, read;
 };
 
-typedef struct Memory GbROM;  // Read-Only Memory
-typedef struct Memory GbERAM; // External RAM
-typedef struct Memory GbWRAM; // Work Ram
-typedef struct Memory GbVRAM; // Video Ram
-typedef struct Memory GbIO;   // Input/Output
-typedef struct Memory GbORAM; // Object Attribute Map
-typedef struct Memory GbHRAM; // High RAM
+typedef struct Memory GbROM;  /* Read-Only Memory     */
+typedef struct Memory GbERAM; /* External RAM         */
+typedef struct Memory GbWRAM; /* Work Ram             */
+typedef struct Memory GbVRAM; /* Video Ram            */
+typedef struct Memory GbIO;   /* Input/Output         */
+typedef struct Memory GbORAM; /* Object Attribute Map */
+typedef struct Memory GbHRAM; /* High RAM             */
 
 typedef enum GbMemoryMapUnitSection {
     GB_ILLEGAL_SECTION,
@@ -52,6 +53,7 @@ typedef enum GbMemoryMapUnitSection {
     GB_VRAM_SECTION,
     GB_ERAM_SECTION,
     GB_WRAM_SECTION,
+    GB_ECHO_SECTION,
     GB_ORAM_SECTION,
     GB_IO_SECTION,
     GB_HRAM_SECTION,
@@ -59,7 +61,7 @@ typedef enum GbMemoryMapUnitSection {
 
 const char *gb_mmu_section_string(const GbMemoryMapUnitSection section);
 
-#define GB_ADDRESS_SPACES_COUNT 8
+#define GB_ADDRESS_SPACES_COUNT 9
 
 typedef struct GbMemoryMapUnit {
     GbROM  *rom;
@@ -71,13 +73,10 @@ typedef struct GbMemoryMapUnit {
     GbWRAM *wram;
 } GbMemoryMapUnit;
 
-typedef struct MemoryMap {
-    GbMemoryMapUnitSection section;
-    GbMemoryMapUnit *unit;
-} GbMemoryMap;
+typedef struct GbMemoryMapUnit GbMemoryMap;
 
-bool gb_mmu_write  (GbMemoryMap *mmu, const int location, const int value);
-int  gb_mmu_read   (GbMemoryMap *mmu, const int location);
+bool gb_mmu_write(GbMemoryMap *mmu, const int location, const uint8_t value);
+uint8_t  gb_mmu_read (GbMemoryMap *mmu, const int location);
 
 GbMemoryMap *gb_mmu_init(void);
 bool gb_mmu_destroy(GbMemoryMap *mmu);
