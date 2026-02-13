@@ -61,7 +61,7 @@ static inline int sm83_disasm_append(struct Disasm *disasm, char *buffer)
 }
 
 /* Joining of 8-bit Integers */
-static inline uint16_t sm83_join_eight_bit(uint8_t hi, uint8_t lo)
+static inline uint16_t sm83_join_eight_bits(uint8_t hi, uint8_t lo)
 {
     return (uint16_t) ((hi << 8) | lo);
 }
@@ -87,6 +87,15 @@ static inline uint16_t sm83_fetch16(struct SM83CPU *cpu)
     return (hi << 8) | lo;
 }
 
+/* Modifies The CPU, Writes Back 8 bit data */
+static inline int sm83_write8(struct SM83CPU *cpu, const uint8_t data, const uint16_t addr)
+{
+    if (cpu == NULL) return -1;
+    int ret = gb_mmu_write(cpu->mmu, addr, data);
+    if (ret != 0) return -1;
+    return 0;
+}
+
 /* Initializer the sm83 cpu members */
 int sm83_cpu_init(struct SM83CPU *cpu, uint16_t pc)
 {
@@ -96,10 +105,7 @@ int sm83_cpu_init(struct SM83CPU *cpu, uint16_t pc)
     /* Emit Disassembly Flag is False By default */
     cpu->emit_disasm = 0;
 
-    /*
-      If Emit Disassembly is True Allocate Memory
-    */
-
+    /* If Emit Disassembly is True Allocate Memory */
     if (cpu->emit_disasm)
     {
         cpu->disasm.disasm_size  = 0;
@@ -117,9 +123,7 @@ int sm83_cpu_init(struct SM83CPU *cpu, uint16_t pc)
         cpu->disasm.disasm_items = NULL;
     }
 
-    /*
-      Initialize the Memory Management Unit
-     */
+    /* Initialize the Memory Management Unit */
     cpu->mmu = gb_mmu_init();
     if (cpu->mmu == NULL)
     {
@@ -193,13 +197,15 @@ int sm83_decode(struct SM83CPU *cpu)
     int ret;
 
     switch (instr) {
-    case 0x00: {
+    case 0x00:
+    {
         /* NOP: DO NOTHING */
         if (emit) ret = sm83_disasm_append(&cpu->disasm, "NOP\n");
         if (ret != 0) return -1;
     } break;
 
-    case 0x01: {
+    case 0x01:
+    {
         /*
           LD BC, N16
           Copy fetched 16-bit value to Joined Registers BC
@@ -211,9 +217,86 @@ int sm83_decode(struct SM83CPU *cpu)
 
         if (emit)
         {
-            uint16_t value = sm83_join_eight_bit(B, C);
-            tmp_sprintf("LD BC, 0x%x\n", value);
+            uint16_t value = sm83_join_eight_bits(B, C);
+            tmp_sprintf("LD BC, 0x%x ; BC = 0x%x\n", value, value);
             ret = sm83_disasm_append(&cpu->disasm, tmp_buf);
+            if (ret != 0) return -1;
+        }
+    } break;
+
+    case 0x02:
+    {
+        /*
+          LD [BC], A
+          Copy A into memory address pointed by BC
+        */
+        uint16_t addr = sm83_join_eight_bits(cpu->registers.b, cpu->registers.c);
+        ret = sm83_write8(cpu, cpu->registers.b, addr);
+        if (ret != 0) return -1;
+
+        if (emit)
+        {
+            tmp_sprintf("LD [BC], A ; Copy Accumulator into Memory Pointed by BC\n");
+            ret = sm83_disasm_append(&cpu->disasm, tmp_buf);
+            if (ret != 0) return -1;
+        }
+    } break;
+
+    case 0x03:
+    {
+        /*
+          INC BC
+          increment register BC
+        */
+        uint16_t BC = sm83_join_eight_bits(cpu->registers.b, cpu->registers.c);
+        BC++;
+
+        cpu->registers.b = BC >> 8;
+        cpu->registers.c = BC & 0XFF;
+        if (emit)
+        {
+            tmp_sprintf("INC BC ; Increment the Joined BC Registers\n");
+            ret = sm83_disasm_append(&cpu->disasm, tmp_buf);
+            if (ret != 0) return -1;
+        }
+    } break;
+
+    case 0x04:
+    {
+        /*
+          INC B
+          Update the Flags
+        */
+        uint8_t orig = cpu->registers.b;
+        cpu->registers.b++;
+        uint8_t res = cpu->registers.b;
+
+        /* Set Z (Bit 7) if result == 0*/
+        if (res == 0)
+        {
+            cpu->registers.f |= (1u << 7);
+        }
+
+        /* Clear N (Bit 6)*/
+        cpu->registers.f &= ~(1u << 6);
+
+        /* Set if Overflow From Bit 3 */
+        if ((orig & 0xF) & 0x0F)
+        {
+            /* Set it */
+            cpu->registers.f |= (1u << 5);
+        }
+        else
+        {
+            /* clear it */
+            cpu->registers.f &= ~(1u << 5);
+        }
+
+        if (emit)
+        {
+            tmp_sprintf("INC B ; Increment B and Update Flags\n");
+            ret = sm83_disasm_append(&cpu->disasm, tmp_buf);
+            if (ret != 0) return -1;
         }
     } break;
 
