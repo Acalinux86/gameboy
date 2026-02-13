@@ -1,5 +1,5 @@
 CC=cc
-CFLAGS= -Wall -Wextra -std=c99 -ggdb -MMD -Wno-format-truncation
+CFLAGS= -Wall -Wextra -std=c99 -O0 -ggdb -g3 -MMD -Wno-format-truncation
 LIBS=-lm
 
 BUILD=build
@@ -42,4 +42,4 @@ debug: build/gb | $(BUILD)
 	gf2 $<
 
 clean:
-	rm -rf $(OBJ) $(BUILD)
+	rm -rf $(OBJ) $(BUILD) data/disasm/tetris.asm
