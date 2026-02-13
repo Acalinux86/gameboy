@@ -68,13 +68,17 @@ static inline int gb_mmu__get_virtual_location(const int start, const int end, c
     return virtual_location;
 }
 
-static bool gb_mmu__write_memory(struct Memory *mem, const int location, const uint8_t value)
+static inline bool gb_mmu__write_memory(struct Memory *mem, const int location, const uint8_t value)
 {
     if (!mem) return false;
 
     // Gives you an index within the allocated memory for a section
     const int index = gb_mmu__get_virtual_location(mem->start, mem->end, location);
     if (DEBUG) printf("DEBUG: Writing to Virtual Location: %d\n", index);
+
+    /* Read And Write Are True By Default */
+    mem->read = true;
+    mem->write = true;
 
     mem->data[index] = value;
     return true;
@@ -95,6 +99,11 @@ void gb_mmu_set_read_access (struct Memory *mem, bool enable)
 void gb_mmu_set_write_access(struct Memory *mem, bool enable)
 {
     mem->write = enable;
+}
+
+void gb_mmu_disable_write_access_to_rom(GbMemoryMap *mmu)
+{
+    gb_mmu_set_write_access(mmu->rom, false);
 }
 
 static inline GbMemoryMap *gb_mmu__alloc(void)
@@ -175,55 +184,55 @@ static inline GbMemoryMapUnitSection gb_mmu__match_location_to_section(const int
         }\
     } while (0)
 
-bool gb_mmu_write(GbMemoryMap *mmu, const int location, const uint8_t value)
+int gb_mmu_write(GbMemoryMap *mmu, const int location, const uint8_t value)
 {
     const GbMemoryMapUnitSection section = gb_mmu__match_location_to_section(location);
 
     switch (section) {
     case GB_ROM_SECTION: {
         GB_MMU_WRITE_ON_CHECK(mmu->rom, location, value, section);
-        return true;
+        return 0;
     }
 
     /* Defer Writes from echo ram to work ram*/
     case GB_ECHO_SECTION:
     case GB_WRAM_SECTION: {
         GB_MMU_WRITE_ON_CHECK(mmu->wram, location, value, section);
-        return true;
+        return 0;
     }
 
     case GB_ERAM_SECTION: {
         GB_MMU_WRITE_ON_CHECK(mmu->eram, location, value, section);
-        return true;
+        return 0;
     }
 
     case GB_IO_SECTION: {
         GB_MMU_WRITE_ON_CHECK(mmu->io, location, value, section);
-        return true;
+        return 0;
     }
 
     case GB_VRAM_SECTION: {
         GB_MMU_WRITE_ON_CHECK(mmu->vram, location, value, section);
-        return true;
+        return 0;
     }
 
     case GB_ORAM_SECTION: {
         GB_MMU_WRITE_ON_CHECK(mmu->oram, location, value, section);
-        return true;
+        return 0;
     }
 
     case GB_HRAM_SECTION: {
         GB_MMU_WRITE_ON_CHECK(mmu->hram, location, value, section);
-        return true;
+        return 0;
     }
 
     case GB_ILLEGAL_SECTION:
     default:
         fprintf(stderr, "ERROR: Writing to Unreachable Section: `%s`\n", gb_mmu_section_string(section));
-        return false;
+        return -1;
     }
     fprintf(stderr, "ERROR: Unreachable `gb_mmu_write` Code\n");
-    return false;
+    return -1;
 }
 
 uint8_t gb_mmu_read(GbMemoryMap *mmu, const int location)

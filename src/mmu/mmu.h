@@ -75,7 +75,7 @@ typedef struct GbMemoryMapUnit {
 
 typedef struct GbMemoryMapUnit GbMemoryMap;
 
-bool gb_mmu_write(GbMemoryMap *mmu, const int location, const uint8_t value);
+int gb_mmu_write(GbMemoryMap *mmu, const int location, const uint8_t value);
 uint8_t  gb_mmu_read (GbMemoryMap *mmu, const int location);
 
 GbMemoryMap *gb_mmu_init(void);
@@ -83,4 +83,8 @@ bool gb_mmu_destroy(GbMemoryMap *mmu);
 
 void gb_mmu_set_read_access (struct Memory *mem, bool enable);
 void gb_mmu_set_write_access(struct Memory *mem, bool enable);
+
+/* Disable Write Access to Rom */
+void gb_mmu_disable_write_access_to_rom(GbMemoryMap *mmu);
+
 #endif // GB_MEMORY_MAP_SECTION_H_
