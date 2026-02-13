@@ -7,18 +7,8 @@ obj/
 # TODOs File
 todos.md
 
-# Gameboy Logs
-*.log
-
 # Gameboy Rom Generator
 gen.py
 
 # Gameboy Roms
-roms/
-
-# Generated Files
-src/cpu/opcode_tables.c
-src/cpu/opcodes.h
-
-# python caches
-__pycache__/
+data/
