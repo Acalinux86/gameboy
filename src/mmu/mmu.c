@@ -1,295 +1,276 @@
 #include "./mmu.h"
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
 
-const int DEBUG = 0;
-
-const char *gb_mmu_section_string(const GbMemoryMapUnitSection section)
+int mmu_init(struct MMU *mmu, FILE *fp)
 {
-    switch (section) {
-    case GB_ILLEGAL_SECTION: return "illegal section";
-    case GB_ROM_SECTION:     return "Rom";
-    case GB_VRAM_SECTION:    return "Video Ram";
-    case GB_ERAM_SECTION:    return "External Ram";
-    case GB_WRAM_SECTION:    return "Work Ram";
-    case GB_ECHO_SECTION:    return "Echo of Work Ram";
-    case GB_ORAM_SECTION:    return "Object Attribute Memory";
-    case GB_IO_SECTION:      return "Input/Output";
-    case GB_HRAM_SECTION:    return "High Ram";
-    default:
-        fprintf(stderr, "ERROR: Unreachable Section\n");
-        abort();
+    if (mmu == NULL) return -1;
+    if (fp == NULL) return -1;
+
+    /*
+      Load BOOT Sequence First 256 bytes
+      0x0000 - 0x0100
+    */
+    size_t boot_bytes = fread(mmu->rom.sequence, sizeof(byte), BOOT_SEQUENCE_SIZE, fp);
+    if (boot_bytes != BOOT_SEQUENCE_SIZE) return -1;
+
+    /*
+      Load the Cartridge Header, the Next 80 bytes
+      0x0100 - 0x014F
+    */
+    size_t cart_bytes = fread(&mmu->rom.cart, sizeof(byte), sizeof(struct CartridgeHeader), fp);
+    if (cart_bytes != CARTRIDGE_HEADER_SIZE) return -1;
+
+    /*
+      The Loaded Cartridge Header Should give us an insight to the RAM Available
+      in the Cartridge and the banks count
+    */
+    size_t ram_size = cart_determine_ram_size(&mmu->rom.cart);
+
+    if (ram_size == 0)
+    {
+        /*
+           No Banks Available in Cartridge (No RAM)
+           Determine ROM Size and Load The Rest of the ROM
+           Null Initialize them
+        */
+        mmu->rom.banks = NULL;
+        mmu->rom.banks_count = 0;
+
+        /* Rewind the FP */
+        rewind(fp);
+
+        /* Dynamically Allocate the all the rom bytes Here */
+        mmu->rom.rom_size = cart_determine_rom_size(&mmu->rom.cart);
+        if (mmu->rom.rom_size <= 0) return -1;
+
+        mmu->rom.rom_bytes = (byte*)malloc(sizeof(byte) * mmu->rom.rom_size);
+        if (mmu->rom.rom_bytes == NULL) return -1;
+
+        size_t rom_bytes_read = fread(mmu->rom.rom_bytes, sizeof(*mmu->rom.rom_bytes), mmu->rom.rom_size, fp);
+        if (rom_bytes_read != mmu->rom.rom_size) return -1;
     }
-    fprintf(stderr, "ERROR: Unreachable `gb_mmu_section_string` Code\n");
-    abort();
-}
-
-static inline struct Memory *gb_mmu__alloc_memory(const int capacity, const int start, const int end)
-{
-    struct Memory *mem = (struct Memory *)calloc(1, sizeof(*mem));
-    if (mem == NULL) {
-        fprintf(stderr, "ERROR: Memory Allocation Failed For Struct\n");
-        return NULL;
+    else
+    {
+        // Handle Bank Access Here
     }
 
-    mem->data = (uint8_t*)calloc(capacity, sizeof(*mem->data));
-    if (mem->data == NULL) {
-        fprintf(stderr, "ERROR: Memory Allocation Failed For Data\n");
-        return NULL;
-    }
-
-    mem->capacity = capacity;
-    mem->start = start;
-    mem->end = end;
-    return mem;
+    /* Pass the Game Title To the MMU game title Pointer */
+    mmu->game_title = cart_extract_title(&mmu->rom.cart);
+    if (mmu->game_title == NULL) return -1;
+    return 0;
 }
 
-static inline bool gb_mmu__dealloc_memory(struct Memory *mem)
+int mmu_destroy(struct MMU *mmu)
 {
-    if (!mem) return false;
-    if (mem->data != NULL) {
-        free(mem->data);
-    }
+    /* Return Error if Pointers Are NULL */
+    if (mmu == NULL) return -1;
+    if (mmu->rom.rom_bytes == NULL) return -1;
+    if (mmu->game_title == NULL) return -1;
 
-    mem->data = NULL;
-    free(mem);
-
-    mem = NULL;
-    return true;
+    /* Free Allocated Memory */
+    free(mmu->game_title);
+    free(mmu->rom.rom_bytes);
+    return 0;
 }
 
-static inline int gb_mmu__get_virtual_location(const int start, const int end, const int loc)
-{
-    const int virtual_location = loc - start;
-    assert(virtual_location >= 0);
-    assert(virtual_location < (end - start));
-    return virtual_location;
-}
-
-static inline bool gb_mmu__write_memory(struct Memory *mem, const int location, const uint8_t value)
-{
-    if (!mem) return false;
-
-    // Gives you an index within the allocated memory for a section
-    const int index = gb_mmu__get_virtual_location(mem->start, mem->end, location);
-    if (DEBUG) printf("DEBUG: Writing to Virtual Location: %d\n", index);
-
-    /* Read And Write Are True By Default */
-    mem->read = true;
-    mem->write = true;
-
-    mem->data[index] = value;
-    return true;
-}
-
-static uint8_t gb_mmu__read_memory(const struct Memory *mem, const int loc)
-{
-    const int index = gb_mmu__get_virtual_location(mem->start, mem->end, loc);
-    if (DEBUG) printf("DEBUG: Reading from Virtual Location: %d\n", index);
-    return mem->data[index];
-}
-
-void gb_mmu_set_read_access (struct Memory *mem, bool enable)
-{
-    mem->read = enable;
-}
-
-void gb_mmu_set_write_access(struct Memory *mem, bool enable)
-{
-    mem->write = enable;
-}
-
-void gb_mmu_disable_write_access_to_rom(GbMemoryMap *mmu)
-{
-    gb_mmu_set_write_access(mmu->rom, false);
-}
-
-static inline GbMemoryMap *gb_mmu__alloc(void)
-{
-    GbMemoryMap *unit = (GbMemoryMap*)malloc(sizeof(*unit));
-    if (unit == NULL) {
-        fprintf(stderr, "ERROR: Memory Allocation Failed For Struct\n");
-        return NULL;
-    }
-    return unit;
-}
-
-#define GB_REGISTER_MEMORY(mem, cap, start, end, read, write) \
-    mem = gb_mmu__alloc_memory(cap, start, end); \
-    assert(mem != NULL); \
-    gb_mmu_set_read_access(mem, read);\
-    gb_mmu_set_write_access(mem, write);\
-
-GbMemoryMap *gb_mmu_init(void)
-{
-    // Initialize the Memory Management Unit
-    GbMemoryMap *mmu = (GbMemoryMap*)malloc(sizeof(*mmu));
-    if (mmu == NULL) return NULL;
-
-    GB_REGISTER_MEMORY(mmu->eram, GB_ERAM_SIZE, GB_ERAM_START, GB_ERAM_END, true, true);
-    GB_REGISTER_MEMORY(mmu->wram, GB_WRAM_SIZE, GB_WRAM_START, GB_WRAM_END, true, true);
-    GB_REGISTER_MEMORY(mmu->vram, GB_VRAM_SIZE, GB_VRAM_START, GB_VRAM_END, true, true);
-    GB_REGISTER_MEMORY(mmu->hram, GB_HRAM_SIZE, GB_HRAM_START, GB_HRAM_END, true, true);
-    GB_REGISTER_MEMORY(mmu->oram, GB_ORAM_SIZE, GB_ORAM_START, GB_ORAM_END, true, true);
-    GB_REGISTER_MEMORY(mmu->rom,  GB_ROM_SIZE,  GB_ROM_START,  GB_ROM_END,  true, true);
-    GB_REGISTER_MEMORY(mmu->io,   GB_IO_SIZE,   GB_IO_START,   GB_IO_END,   true, true);
-    return mmu;
-}
-
-static inline bool gb_mmu__validate_location(const int start, const int end, const int location)
-{
-    return location >= start && location < end;
-}
-
-const int GbPhysicalAddressSpace[GB_ADDRESS_SPACES_COUNT][2] = {
-    /*[GB_ILLEGAL_SECTION] = */ {GB_ILLEGAL_ADDR, GB_ILLEGAL_ADDR},
-    /*[GB_ROM_SECTION]     = */ {GB_ROM_START   , GB_ROM_END},
-    /*[GB_IO_SECTION]      = */ {GB_IO_START    , GB_IO_END},
-    /*[GB_VRAM_SECTION]    = */ {GB_VRAM_START  , GB_VRAM_END},
-    /*[GB_WRAM_SECTION]    = */ {GB_WRAM_START  , GB_WRAM_END},
-    /*[GB_ECHO_SECTION]    = */ {GB_ECHO_START  , GB_ECHO_END},
-    /*[GB_ERAM_SECTION]    = */ {GB_ERAM_START  , GB_ERAM_END},
-    /*[GB_ORAM_SECTION]    = */ {GB_ORAM_START  , GB_ORAM_END},
-    /*[GB_HRAM_SECTION]    = */ {GB_HRAM_START  , GB_HRAM_END},
+#define ADDRESS_SPACES_COUNT 10
+const uint16_t PhysicalAddressSpace[ADDRESS_SPACES_COUNT][2] = {
+    {ROM_START              , ROM_END              },
+    {VIDEO_RAM_START        , VIDEO_RAM_END        },
+    {EXTERNAL_RAM_START     , EXTERNAL_RAM_END     },
+    {WORK_RAM_START         , WORK_RAM_END         },
+    {ECHO_RAM_START         , ECHO_RAM_END         },
+    {OBJECT_RAM_START       , OBJECT_RAM_END       },
+    {PROHIBITED_SPACE_START , PROHIBITED_SPACE_END },
+    {HIGH_RAM_START         , HIGH_RAM_END         },
+    {IO_START               , IO_END               },
+    {IER_START              , IER_END              }
 };
 
-static inline GbMemoryMapUnitSection gb_mmu__match_location_to_section(const int loc)
+enum MapSection __mmu_map_addr_to_section(const uint16_t addr)
 {
-    if (DEBUG) printf("DEBUG: location => %d\n", loc);
-    GbMemoryMapUnitSection section = GB_ILLEGAL_SECTION;
-    for (int i = 0; i < GB_ADDRESS_SPACES_COUNT; ++i) {
-        const int start = GbPhysicalAddressSpace[i][0];
-        const int end   = GbPhysicalAddressSpace[i][1];
-        const bool valid = gb_mmu__validate_location(start, end, loc);
-        if (valid) {
-            section = (GbMemoryMapUnitSection)i;
-            break;
-        } else {
-            continue;
+    for (uint16_t i = 0; i < ADDRESS_SPACES_COUNT; ++i)
+    {
+        const uint16_t start = PhysicalAddressSpace[i][0];
+        const uint16_t end   = PhysicalAddressSpace[i][1];
+
+        if (addr >= start && addr <= end)
+        {
+            return (enum MapSection)i;
         }
     }
-    if (DEBUG) printf("DEBUG: section => %s\n", gb_mmu_section_string(section));
-    return section;
+    return SECTION_ILLEGAL;
 }
 
-#define GB_MMU_WRITE_ON_CHECK(mem, location, value, section)\
-    do {\
-        if ((mem)->write) {\
-            if (!gb_mmu__write_memory(mem, location, value)) return false;\
-        } else {\
-            fprintf(stderr, "ERROR: Write Access Memory Section \'%s\' Denied.\n", gb_mmu_section_string(section));\
-            return false;\
-        }\
-    } while (0)
-
-int gb_mmu_write(GbMemoryMap *mmu, const int location, const uint8_t value)
+static inline uint16_t __mmu_calculate_virtual_addr(uint16_t allocated, uint16_t end, uint16_t physical_addr)
 {
-    const GbMemoryMapUnitSection section = gb_mmu__match_location_to_section(location);
+    /*
+      We are calculating the index within the allocated buffer for each section.
+      e,g 8 Kib allocated
+      start = 0x0000
+      end = 0xCFFF
+      addr = 0xBFFF
 
-    switch (section) {
-    case GB_ROM_SECTION: {
-        GB_MMU_WRITE_ON_CHECK(mmu->rom, location, value, section);
-        return 0;
-    }
+      index = end - addr
+      index < 8 Kib
+      index >= 0 => uint16 will check this for us
+    */
+    assert(physical_addr <= end);
+    uint16_t index = end - physical_addr;
+    assert(index <= allocated);
+    return index;
+}
 
-    /* Defer Writes from echo ram to work ram*/
-    case GB_ECHO_SECTION:
-    case GB_WRAM_SECTION: {
-        GB_MMU_WRITE_ON_CHECK(mmu->wram, location, value, section);
-        return 0;
-    }
 
-    case GB_ERAM_SECTION: {
-        GB_MMU_WRITE_ON_CHECK(mmu->eram, location, value, section);
-        return 0;
-    }
+int mmu_write(struct MMU *mmu, uint16_t addr, byte value)
+{
+    if (mmu == NULL) return -1;
+    enum MapSection section = __mmu_map_addr_to_section(addr);
 
-    case GB_IO_SECTION: {
-        GB_MMU_WRITE_ON_CHECK(mmu->io, location, value, section);
-        return 0;
-    }
+    switch (section)
+    {
 
-    case GB_VRAM_SECTION: {
-        GB_MMU_WRITE_ON_CHECK(mmu->vram, location, value, section);
-        return 0;
-    }
+    case SECTION_WORK_RAM:
+    {
+        /* Writes to WRAM */
+        uint16_t index = __mmu_calculate_virtual_addr(WRAM_SIZE, WORK_RAM_END, addr);
+        mmu->wram[index] = value;
+    } break;
 
-    case GB_ORAM_SECTION: {
-        GB_MMU_WRITE_ON_CHECK(mmu->oram, location, value, section);
-        return 0;
-    }
+    case SECTION_ECHO_RAM:
+    {
+        /*
+          any Writes to Echo RAM mirrors Work Ram
+          They are the same sizes
+        */
+        uint16_t index = __mmu_calculate_virtual_addr(WRAM_SIZE, ECHO_RAM_END, addr);
+        mmu->wram[index] = value;
+    } break;
 
-    case GB_HRAM_SECTION: {
-        GB_MMU_WRITE_ON_CHECK(mmu->hram, location, value, section);
-        return 0;
-    }
+    case SECTION_VIDEO_RAM:
+    {
+        /* Write to Video RAM */
+        uint16_t index = __mmu_calculate_virtual_addr(VRAM_SIZE, VIDEO_RAM_END, addr);
+        mmu->vram[index] = value;
+    } break;
 
-    case GB_ILLEGAL_SECTION:
+    case SECTION_EXTERNAL_RAM:
+    {
+        /* Write to External RAM */
+        uint16_t index = __mmu_calculate_virtual_addr(EXRAM_SIZE, EXTERNAL_RAM_END, addr);
+        mmu->exram[index] = value;
+    } break;
+
+    case SECTION_OBJECT_RAM:
+    {
+        /* Write to Object Attribute Memory RAM */
+        uint16_t index = __mmu_calculate_virtual_addr(OAM_SIZE, OBJECT_RAM_END, addr);
+        mmu->oam[index] = value;
+    } break;
+
+    case SECTION_INPUT_OUTPUT:
+    {
+        /* Write to Input Output Memory RAM */
+        uint16_t index = __mmu_calculate_virtual_addr(IO_SIZE, IO_END, addr);
+        mmu->io[index] = value;
+    } break;
+
+    case SECTION_HIGH_RAM:
+    {
+        /* Write to HIGH RAM */
+        uint16_t index = __mmu_calculate_virtual_addr(HRAM_SIZE, HIGH_RAM_END, addr);
+        mmu->hram[index] = value;
+    } break;
+
+    case SECTION_IER:
+    {
+        /* Write to Interrupt Enable Register */
+        mmu->ier = value;
+    } break;
+
+    case SECTION_ROM:
+    case SECTION_PROHIBITED:
+    case SECTION_ILLEGAL:
     default:
-        fprintf(stderr, "ERROR: Writing to Unreachable Section: `%s`\n", gb_mmu_section_string(section));
+        fprintf(stderr, "Write Prohibited\n");
         return -1;
     }
-    fprintf(stderr, "ERROR: Unreachable `gb_mmu_write` Code\n");
-    return -1;
+
+    return 0;
 }
 
-uint8_t gb_mmu_read(GbMemoryMap *mmu, const int location)
+byte mmu_read(struct MMU *mmu, uint16_t addr)
 {
-    const GbMemoryMapUnitSection section = gb_mmu__match_location_to_section(location);
-    switch (section) {
-    case GB_ROM_SECTION: {
-        return gb_mmu__read_memory(mmu->rom, location);
+    enum MapSection section = __mmu_map_addr_to_section(addr);
+
+    /* Reussable Variable */
+    uint16_t virtual_addr;
+
+    switch (section)
+    {
+    case SECTION_ROM:
+    {
+        virtual_addr = __mmu_calculate_virtual_addr(mmu->rom.rom_size, ROM_END, addr);
+        return mmu->rom.rom_bytes[virtual_addr];
     }
 
-    case GB_VRAM_SECTION: {
-        return gb_mmu__read_memory(mmu->vram, location);
+    case SECTION_VIDEO_RAM:
+    {
+        virtual_addr = __mmu_calculate_virtual_addr(VRAM_SIZE, VIDEO_RAM_END, addr);
+        return mmu->vram[virtual_addr];
     }
 
-    case GB_ERAM_SECTION: {
-        return gb_mmu__read_memory(mmu->eram, location);
+    case SECTION_EXTERNAL_RAM:
+    {
+        virtual_addr = __mmu_calculate_virtual_addr(EXRAM_SIZE, EXTERNAL_RAM_END, addr);
+        return mmu->exram[virtual_addr];
     }
 
-    /* defer read from echo ram section to work ram */
-    case GB_ECHO_SECTION:
-    case GB_WRAM_SECTION: {
-        return gb_mmu__read_memory(mmu->wram, location);
+    case SECTION_WORK_RAM:
+    {
+        virtual_addr = __mmu_calculate_virtual_addr(WRAM_SIZE, WORK_RAM_END, addr);
+        return mmu->wram[virtual_addr];
     }
 
-    case GB_ORAM_SECTION: {
-        return gb_mmu__read_memory(mmu->oram, location);
+    case SECTION_ECHO_RAM:
+    {
+        /*
+          We are calculating the Index using the ECHO RAM bounds
+          Since any read or write mirrors with the work ram
+          we should be able to use the calculated index within the
+          work ram buffer
+        */
+        virtual_addr = __mmu_calculate_virtual_addr(WRAM_SIZE, ECHO_RAM_END, addr);
+        return mmu->wram[virtual_addr];
     }
 
-    case GB_IO_SECTION: {
-        return gb_mmu__read_memory(mmu->io, location);
+    case SECTION_OBJECT_RAM:
+    {
+        virtual_addr = __mmu_calculate_virtual_addr(OAM_SIZE, OBJECT_RAM_END, addr);
+        return mmu->oam[virtual_addr];
     }
 
-    case GB_HRAM_SECTION: {
-        return gb_mmu__read_memory(mmu->hram, location);
+    case SECTION_INPUT_OUTPUT:
+    {
+        virtual_addr = __mmu_calculate_virtual_addr(IO_SIZE, IO_END, addr);
+        return mmu->io[virtual_addr];
     }
 
-    case GB_ILLEGAL_SECTION:
-    default: {
-        fprintf(stderr, "ERROR: Reading From Unreachable Section: `%s`\n", gb_mmu_section_string(section));
-        abort();
+    case SECTION_HIGH_RAM:
+    {
+        virtual_addr = __mmu_calculate_virtual_addr(HRAM_SIZE, HIGH_RAM_END, addr);
+        return mmu->hram[virtual_addr];
     }
+
+    case SECTION_IER:
+    {
+        return mmu->ier;
     }
-    fprintf(stderr, "Unreachable `gb_mmu_read` Code\n");
-    abort();
-}
 
-bool gb_mmu_destroy(GbMemoryMap *mmu) {
-    if (!mmu) return false;
-
-    if (!gb_mmu__dealloc_memory(mmu->rom))  return false;
-    if (!gb_mmu__dealloc_memory(mmu->vram)) return false;
-    if (!gb_mmu__dealloc_memory(mmu->eram)) return false;
-    if (!gb_mmu__dealloc_memory(mmu->wram)) return false;
-    if (!gb_mmu__dealloc_memory(mmu->io))   return false;
-    if (!gb_mmu__dealloc_memory(mmu->oram)) return false;
-    if (!gb_mmu__dealloc_memory(mmu->hram)) return false;
-    free(mmu);
-    mmu = NULL;
-    return true;
+    case SECTION_ILLEGAL:
+    case SECTION_PROHIBITED:
+    default:
+        return bad_value;
+    }
 }
