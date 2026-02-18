@@ -1,6 +1,7 @@
 #ifndef SM83_CPU_H_
 #define SM83_CPU_H_
 
+#include "disasm/disasm.h"
 #include "sm83_opcode.h"
 #include "mmu.h"
 
@@ -8,8 +9,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define SM83_DISASM_CAP 128
 
 struct SM83Registers
 {
@@ -31,23 +30,18 @@ struct SM83Registers
     uint16_t sp;
 };
 
-struct Disasm
+enum SM83REGS
 {
-    /*
-     * char **disasm is a dynamic buffer of buffers,
-     Contains the disassembly of the Rom.
-
-     * Allocated when init sm83_cpu_init,
-     Freed when sm83_cpu_shutdown is called,
-
-      * size_t disasm_size is the size of the disasm.
-      * size_t disasm_cap is the capacity of the disasm buffer.
-      * disasm is dynamically reallocated if size reaches capacity,
-      and capacity is increased.
-    */
-    char **disasm_items;
-    size_t disasm_size;
-    size_t disasm_cap;
+    REG_A,
+    REG_F,
+    REG_B,
+    REG_C,
+    REG_D,
+    REG_E,
+    REG_H,
+    REG_L,
+    REG_SP,
+    REG_PC,
 };
 
 struct SM83CPU
@@ -65,26 +59,36 @@ struct SM83CPU
     struct SM83Registers registers;
 
     /* Memory Management Unit */
-    GbMemoryMap *mmu;
+    struct MMU *mmu;
+};
+
+/* Return Types For CPU Functions */
+enum SM83Error {
+    SM83_OK = 0,
+    SM83_ERR_MEMORY = -1,
+    SM83_ERR_INVALID_OPCODE = -2,
+    SM83_ERR_MMU = -3,
+    SM83_ERR_NULL_CPU = -4,
+    SM83_ERR_DISASM = -5,
 };
 
 /* Initializer the sm83 cpu members */
-int sm83_cpu_init(struct SM83CPU *cpu, uint16_t pc);
+enum SM83Error sm83_cpu_init(struct SM83CPU *cpu, FILE *fp, uint16_t pc);
 
 /* Shutdown the CPU and free the allocated members */
-void sm83_cpu_shutdown(struct SM83CPU *cpu);
-
-/* 8-Bit load instructions */
-void sm83_8_bit_load(uint8_t dst, uint8_t src);
-
-/* 16-Bit load instructions */
-void sm83_16_bit_load(uint16_t dst, uint16_t src);
+enum SM83Error sm83_cpu_shutdown(struct SM83CPU *cpu);
 
 /* Decode the Instructions */
-int sm83_decode(struct SM83CPU *cpu);
+enum SM83Error sm83_decode(struct SM83CPU *cpu);
 
-/* Dump the Disassembly Contents into a file */
-void sm83_dump_disasm(const struct Disasm *disasm, FILE *fp);
+/* Write back a byte to Memory */
+enum SM83Error sm83_write8(struct SM83CPU *cpu, const uint8_t data, const uint16_t addr);
+
+/* Read a byte from Memory */
+uint8_t sm83_read(const struct SM83CPU *cpu, const uint16_t addr);
+
+/* Error Types As Strings */
+const char *sm83_error_string(enum SM83Error error);
 
 /* Helper function to tell the CPU to emit disassembly or not */
 void sm83_cpu_emit_disasm(struct SM83CPU *cpu, int emit);
