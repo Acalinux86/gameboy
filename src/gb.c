@@ -4,6 +4,9 @@
 
 #define INITIALIZE_PROGRAM_COUNTER 0x0000
 
+/* Global Temporary Variable to append the disassembly String. */
+char tmp_buf[MAX_TMP_BUF_SIZE];
+
 int main(void)
 {
     /* Open the Rom File into memory */
@@ -18,21 +21,28 @@ int main(void)
 
     /* Initialize the Cpu */
     struct SM83CPU cpu = {0};
-    int ret = sm83_cpu_init(&cpu, gfp, INITIALIZE_PROGRAM_COUNTER);
-    if (ret != 0) return 1;
+    enum SM83Error ret = sm83_cpu_init(&cpu, gfp, INITIALIZE_PROGRAM_COUNTER);
+    if (ret != SM83_OK)
+    {
+        fprintf(stderr, "ERROR: Failed to Initialize because of %s\n", sm83_error_string(ret));
+        return 1;
+    }
 
     /* Emit Disassembly */
     sm83_cpu_emit_disasm(&cpu, 1);
 
+    /* Emit Disassembly */
+    EMIT_DISASM(1, SM83_ERR_DISASM, &cpu.disasm, ";; Automatically Generated Disassembly File of %s\n", file_path);
+
     /* Fetch => Decode => Execute Loop Cycle */
     while (1)
     {
-        if (sm83_decode(&cpu) != 0)
+        enum SM83Error decode = sm83_decode(&cpu);
+        if (decode != SM83_OK)
         {
-            fprintf(stderr, "ERROR: Decode ERROR\n");
+            fprintf(stderr, "ERROR: Failed to Decode Opcodes because of %s\n", sm83_error_string(decode));
             break;
         }
-        // if (cpu.registers.pc >= INITIALIZE_PROGRAM_COUNTER + size) break;
     }
 
     /* File to Be Dump Rom Assembly*/
@@ -56,6 +66,12 @@ int main(void)
     fclose(gfp);
 
     /* Shutdown the CPU */
-    sm83_cpu_shutdown(&cpu);
+    enum SM83Error error = sm83_cpu_shutdown(&cpu);
+
+    if (error != SM83_OK)
+    {
+        fprintf(stderr, "ERROR: Failed to Shutdown CPU because of %s\n", sm83_error_string(ret));
+        return 1;
+    }
     return 0;
 }
