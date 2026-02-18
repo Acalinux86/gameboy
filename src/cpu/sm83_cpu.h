@@ -55,6 +55,9 @@ struct SM83CPU
      */
     int emit_disasm;
 
+    /* Flag to Signal the CPU to Stop until Interrupt */
+    int stopped;
+
     /* Registers */
     struct SM83Registers registers;
 
@@ -87,7 +90,7 @@ enum SM83Error sm83_write8(struct SM83CPU *cpu, const uint8_t data, const uint16
 /* Read a byte from Memory */
 uint8_t sm83_read(const struct SM83CPU *cpu, const uint16_t addr);
 
-/* Error Types As Strings */
+/* SM83 Error Types As Strings */
 const char *sm83_error_string(enum SM83Error error);
 
 /* Helper function to tell the CPU to emit disassembly or not */
