@@ -7,8 +7,5 @@ obj/
 # TODOs File
 todos.md
 
-# Gameboy Rom Generator
-gen.py
-
 # Gameboy Roms
 data/
