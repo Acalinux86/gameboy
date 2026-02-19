@@ -7,6 +7,34 @@
 /* Global Temporary Variable to append the disassembly String. */
 char tmp_buf[MAX_TMP_BUF_SIZE];
 
+char *extract_filename(const char *filepath)
+{
+    memset(tmp_buf, 0, MAX_TMP_BUF_SIZE);
+    size_t len = strlen(filepath);
+    size_t counter = 0;
+    char *p2 = (char *)filepath + len - 1;
+    while (*p2)
+    {
+        if (*p2 == '/') break;
+        tmp_buf[counter++] = *p2;
+        p2--;
+    }
+    tmp_buf[counter] = '\0';
+    return tmp_buf;
+}
+
+char *reverse_string(char *string)
+{
+    size_t len = strlen(string);
+    size_t i = 0;
+    for (i = 0; i < len; ++i)
+    {
+        tmp_buf[i] = string[len - i - 1];
+    }
+    tmp_buf[i] = '\0';
+    return tmp_buf;
+}
+
 int main(void)
 {
     /* Open the Rom File into memory */
@@ -46,7 +74,12 @@ int main(void)
     }
 
     /* File to Be Dump Rom Assembly*/
-    const char *asm_file = "data/disasm/tetris.asm";
+    char *extracted_filename = extract_filename(file_path);
+    char temp_copy[MAX_TMP_BUF_SIZE];
+    strcpy(temp_copy, extracted_filename);
+    char *file_name = reverse_string(temp_copy);
+    snprintf(tmp_buf, MAX_TMP_BUF_SIZE, "%sasm", file_name);
+    const char *asm_file = "data/disasm/tetris.gbasm";
 
     /* Open File For writing */
     FILE *fp = fopen(asm_file, "wb");
