@@ -523,7 +523,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_load_r8_n8(cpu, &cpu->registers.b);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD B, 0x%X ; Copy 0x%x into reg B\n", cpu->registers.b, cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld b, 0x%x ; copy 0x%x into reg b\n", cpu->registers.b, cpu->registers.b);
     } break;
 
     case OP_RLCA:
@@ -560,7 +560,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         }
 
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "RLCA ; Rotate Accumulator Left\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rlca ; rotate accumulator left\n");
     } break;
 
     case OP_LD_A16_SP:
@@ -585,7 +585,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         if (ret != SM83_OK) return ret;
 
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD [0x%04x], SP\n", addr);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [0x%04x], sp\n", addr);
     } break;
 
     case OP_ADD_HL_BC:
@@ -596,7 +596,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_add_r16_r16(cpu, &cpu->registers.h, &cpu->registers.l, &cpu->registers.b, &cpu->registers.c);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ADD HL, BC\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add hl, bc\n");
     } break;
 
     case OP_LD_A_BC:
@@ -607,7 +607,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_load_accumulator_r16(cpu, &cpu->registers.b, &cpu->registers.c);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD A, [BC]\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, [bc]\n");
     } break;
 
     case OP_DEC_BC:
@@ -618,7 +618,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_dec_r16(&cpu->registers.b, &cpu->registers.c);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "DEC BC\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec bc\n");
     } break;
 
     case OP_INC_C:
@@ -626,7 +626,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC Register C, also flags are updated */
         __sm83_inc_r8(cpu, &cpu->registers.c);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "INC C\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc c\n");
     } break;
 
     case OP_DEC_C:
@@ -634,7 +634,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC Register C, also flags are updated */
         __sm83_dec_r8(cpu, &cpu->registers.c);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "DEC C\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec c\n");
     } break;
 
     case OP_LD_C_N8:
@@ -645,7 +645,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_load_r8_n8(cpu, &cpu->registers.c);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD C, 0x%x\n", cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld c, 0x%x\n", cpu->registers.c);
     } break;
 
     case OP_RRCA:
@@ -682,7 +682,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         }
 
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "RRCA ; Rotate Accumulator Right\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rrca ; rotate accumulator right\n");
     } break;
 
     case OP_STOP_N8:
@@ -695,7 +695,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         uint8_t n8 = __sm83_fetch8(cpu);
         cpu->stopped = 1;
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "STOP 0x%x\n", n8);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "stop 0x%x\n", n8);
     } break;
 
     case OP_LD_DE_N16:
@@ -707,7 +707,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         __sm83_load_r16_n16(cpu, &cpu->registers.d, &cpu->registers.e);
         uint16_t n16 = __sm83_join_eight_bits(cpu->registers.d, cpu->registers.e);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD DE, 0x%x\n", n16);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld de, 0x%x\n", n16);
     } break;
 
     case OP_LD_DE_A:
@@ -719,7 +719,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         enum SM83Error ret = __sm83_load_r16_n8(cpu, cpu->registers.d, cpu->registers.e, cpu->registers.a);
         if (ret != SM83_OK) return ret;
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD [DE], A\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [de], a\n");
     } break;
 
     case OP_INC_DE:
@@ -727,7 +727,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC DE, Increment DE joined Regs */
         __sm83_inc_r16(&cpu->registers.d, &cpu->registers.e);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "INC DE\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc de\n");
     } break;
 
     case OP_INC_D:
@@ -735,7 +735,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC D, Increment Register D */
         __sm83_inc_r8(cpu, &cpu->registers.d); /* Updates the Flag */
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "INC D\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc d\n");
     } break;
 
     case OP_DEC_D:
@@ -743,7 +743,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* DEC D, Decrements D */
         __sm83_dec_r8(cpu, &cpu->registers.d);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "DEC D\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec d\n");
     } break;
 
     case OP_LD_D_N8:
@@ -754,7 +754,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_load_r8_n8(cpu, &cpu->registers.d);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD D, 0x%x\n", cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld d, 0x%x\n", cpu->registers.d);
     } break;
 
     case OP_RLA:
@@ -782,7 +782,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         cpu->registers.f |= (bit7 << C_BIT);
 
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "RLA\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rla\n");
     } break;
 
     case OP_JR_E8:
@@ -793,7 +793,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_relative_jump_e8(cpu);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "JR 0x%x\n", cpu->registers.pc);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jr 0x%x\n", cpu->registers.pc);
     } break;
 
     case OP_ADD_HL_DE:
@@ -804,7 +804,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_add_r16_r16(cpu, &cpu->registers.h, &cpu->registers.l, &cpu->registers.d, &cpu->registers.e);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ADD HL, DE\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add hl, de\n");
     } break;
 
     case OP_LD_A_DE:
@@ -815,7 +815,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_load_accumulator_r16(cpu, &cpu->registers.d, &cpu->registers.e);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD A, [DE]\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, [de]\n");
     } break;
 
     case OP_DEC_DE:
@@ -823,7 +823,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* DEC DE, Decrement Joined Register DE */
         __sm83_dec_r16(&cpu->registers.d, &cpu->registers.e);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "DEC DE\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec de\n");
     } break;
 
     case OP_INC_E:
@@ -831,7 +831,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC E, Increment Register E */
         __sm83_inc_r8(cpu, &cpu->registers.e);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "INC E\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc e\n");
     } break;
 
     case OP_DEC_E:
@@ -839,7 +839,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* DEC E, Deccrement Register E */
         __sm83_dec_r8(cpu, &cpu->registers.e);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "DEC E\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec e\n");
     } break;
 
     case OP_LD_E_N8:
@@ -849,7 +849,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_load_r8_n8(cpu, &cpu->registers.e);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD E, N8\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld e, n8\n");
     } break;
 
     case OP_RRA:
@@ -880,7 +880,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         cpu->registers.f |= (bit0 << C_BIT);
 
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "RRA ; Rotate Accumulator Right\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rra ; rotate accumulator right\n");
     } break;
 
     case OP_JR_NZ_E8:
@@ -891,7 +891,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         */
         __sm83_relative_jump_cc_e8(cpu, Z_BIT, __sm83_jump_condition_not);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "JR NZ, 0x%04x\n", cpu->registers.pc);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jr nz, 0x%04x\n", cpu->registers.pc);
     } break;
 
     case OP_LD_HL_N16:
@@ -904,7 +904,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         __sm83_load_r16_n16(cpu, &cpu->registers.h, &cpu->registers.l);
         uint16_t n16 = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD HL, 0x%04x\n", n16);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld hl, 0x%04x\n", n16);
     } break;
 
     case OP_LD_HLI_A:
@@ -916,7 +916,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         enum SM83Error ret = __sm83_load_operation_r16_accumulator(cpu, FLAG_ADD, &cpu->registers.h, &cpu->registers.l);
         if (ret != SM83_OK) return ret;
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD [HLI], A\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hli], a\n");
     } break;
 
     case OP_INC_HL:
@@ -924,7 +924,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC HL, Increment Joined Register HL */
         __sm83_inc_r16(&cpu->registers.h, &cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "INC HL\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc hl\n");
     } break;
 
     case OP_INC_H:
@@ -932,7 +932,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC H, Increment Register H , Update Flags */
         __sm83_inc_r8(cpu, &cpu->registers.h);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "INC H\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc h\n");
     } break;
 
     case OP_DEC_H:
@@ -940,7 +940,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC H, Increment Register H */
         __sm83_dec_r8(cpu, &cpu->registers.h);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "INC H\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc h\n");
     } break;
 
     case OP_LD_H_N8:
@@ -948,7 +948,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* LD H, N8. Copy fetched Value n8 into H */
         __sm83_load_r8_n8(cpu, &cpu->registers.h);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD H, N8\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld h, n8\n");
     } break;
 
     case OP_DAA:
@@ -991,7 +991,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* Write Back A */
         cpu->registers.a = a;
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "DAA\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "daa\n");
     } break;
 
     case OP_JR_Z_E8:
@@ -999,7 +999,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* JR Z, E8. Jump if Z == 1 else dont */
         __sm83_relative_jump_cc_e8(cpu, Z_BIT, __sm83_jump_condition_yes);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "JR Z, 0x%04x\n", cpu->registers.pc);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jr z, 0x%04x\n", cpu->registers.pc);
     } break;
 
     case OP_ADD_HL_HL:
@@ -1007,7 +1007,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* ADD HL, HL. add the Joined register HL with itself, update the Flags*/
         __sm83_add_r16_r16(cpu, &cpu->registers.h, &cpu->registers.l, &cpu->registers.h, &cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ADD HL, HL\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add hl, hl\n");
     } break;
 
     case OP_LD_A_HLI:
@@ -1015,7 +1015,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* LD A, HLI , load the byte pointed by HL into A and increment HL*/
         __sm83_load_operation_accumulator_r16(cpu, FLAG_ADD, &cpu->registers.h, &cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD A, [HLI]\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, [hli]\n");
     } break;
 
     case OP_DEC_HL:
@@ -1023,7 +1023,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* DEC, HL , Decremnt the Joined Register HL */
         __sm83_dec_r16(&cpu->registers.h, &cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "DEC, HL\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec, hl\n");
     } break;
 
     case OP_INC_L:
@@ -1031,7 +1031,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC L. Increment the Register L */
         __sm83_inc_r8(cpu, &cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "INC, L\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc, l\n");
     } break;
 
     case OP_DEC_L:
@@ -1039,7 +1039,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* DEC L. Decrement the Register L */
         __sm83_dec_r8(cpu, &cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "DEC, L\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec, l\n");
     } break;
 
     case OP_LD_L_N8:
@@ -1047,7 +1047,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* LD L, N8. Copy n8 into Register L*/
         __sm83_load_r8_n8(cpu, &cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD L, 0x%02x\n", cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld l, 0x%02x\n", cpu->registers.l);
     } break;
 
     case OP_CPL:
@@ -1058,7 +1058,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         cpu->registers.f |= (1u << N_BIT);
         cpu->registers.f |= (1u << H_BIT);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "CPL A\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cpl a\n");
     } break;
 
     case OP_JR_NC_E8:
@@ -1070,7 +1070,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* Isolate C Bit */
         __sm83_relative_jump_cc_e8(cpu, C_BIT, __sm83_jump_condition_not);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "JR NC, 0x%04x\n", cpu->registers.pc);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jr nc, 0x%04x\n", cpu->registers.pc);
     } break;
 
     case OP_LD_SP_N16:
@@ -1078,7 +1078,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* LD SP, N16. Copy N16 into Register SP */
         cpu->registers.sp = __sm83_fetch16(cpu);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD SP, 0x%04x\n", cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld sp, 0x%04x\n", cpu->registers.sp);
     } break;
 
     case OP_LD_HLD_A:
@@ -1086,7 +1086,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* LD HLD, A, Write memory[HL] = A, then decrement HL */
         __sm83_load_operation_r16_accumulator(cpu, FLAG_SUB, &cpu->registers.h, &cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD [HLD], A\n", cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hld], a\n", cpu->registers.sp);
     } break;
 
     case OP_INC_SP:
@@ -1094,7 +1094,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC SP. Increment Stack Pointer */
         cpu->registers.sp++;
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "INC SP\n", cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc sp\n", cpu->registers.sp);
     } break;
 
     case OP_IND_INC_HL:
@@ -1103,7 +1103,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         enum SM83Error ret = __sm83_inc_ind_r16(cpu, &cpu->registers.h, &cpu->registers.l);
         if (ret != SM83_OK) return ret;
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "INC [HL]\n", cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc [hl]\n", cpu->registers.sp);
     } break;
 
     case OP_IND_DEC_HL:
@@ -1112,7 +1112,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         enum SM83Error ret = __sm83_dec_ind_r16(cpu, &cpu->registers.h, &cpu->registers.l);
         if (ret != SM83_OK) return ret;
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "DEC [HL]\n", cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec [hl]\n", cpu->registers.sp);
     } break;
 
     case OP_LD_HL_N8:
@@ -1121,7 +1121,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         uint8_t n8 = __sm83_fetch8(cpu);
         __sm83_load_r16_n8(cpu, cpu->registers.h, cpu->registers.l, n8);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD [HL], 0x%02x\n", n8);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hl], 0x%02x\n", n8);
     } break;
 
     case OP_SCF:
@@ -1132,7 +1132,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         cpu->registers.f &= ~(1u << N_BIT);
         cpu->registers.f &= ~(1u << H_BIT);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "SCF\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "scf\n");
     } break;
 
     case OP_JR_C_E8:
@@ -1140,7 +1140,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* JR C, E8. Jump if C flag bit is 1*/
         __sm83_relative_jump_cc_e8(cpu, C_BIT, __sm83_jump_condition_yes);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "JR C, 0x%02x\n", cpu->registers.pc);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jr c, 0x%02x\n", cpu->registers.pc);
     } break;
 
     case OP_ADD_HL_SP:
@@ -1150,7 +1150,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         uint8_t sp_low = (cpu->registers.sp & 0xFF);
         __sm83_add_r16_r16(cpu, &cpu->registers.h, &cpu->registers.l, &sp_high, &sp_low);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ADD HL, SP\n", cpu->registers.pc);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add hl, sp\n");
     } break;
 
     case OP_LD_A_HLD:
@@ -1158,43 +1158,53 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* LD A, HLD, load the byte in memory address HL and then decement HL */
         __sm83_load_operation_accumulator_r16(cpu, FLAG_SUB, &cpu->registers.h, &cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD A, [HLD]\n", cpu->registers.pc);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, [hld]\n");
     } break;
 
     case OP_DEC_SP:
     {
         /* DEC SP. Decrement SP*/
         cpu->registers.sp--;
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec sp\n");
     } break;
 
     case OP_INC_A:
     {
-
+        /* INC A, increment accumulator */
+        __sm83_inc_r8(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc a\n");
     } break;
 
     case OP_DEC_A:
     {
-
+        /* DEC A, decrement accumulator */
+        __sm83_dec_r8(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec a\n");
     } break;
 
     case OP_LD_A_N8:
     {
-
+        /* LD A, N8. Copy the fetched byte n8 to accumulator*/
+        __sm83_load_r8_n8(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, 0x%02x\n", cpu->registers.a);
     } break;
 
     case OP_CCF:
     {
-
+        /* CCF. Flip the Carry Flag*/
+        cpu->registers.f ^= ~(1u << C_BIT);
+        /* Clear N and H */
+        cpu->registers.f &= ~(1u << N_BIT);
+        cpu->registers.f &= ~(1u << H_BIT);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ccf\n");
     } break;
-
-
 
 
     case OP_LD_L_D:
     {
         __sm83_load_r8_r8(&cpu->registers.l, &cpu->registers.d);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "LD L, D\n");
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld l, d\n");
     } break;
 
     default:
