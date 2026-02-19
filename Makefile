@@ -54,4 +54,4 @@ debug: build/gb | $(BUILD)
 	gf2 $<
 
 clean:
-	rm -rf $(OBJ) $(BUILD) data/disasm/tetris.asm
+	rm -rf $(OBJ) $(BUILD) data/disasm/tetris.gbasm
