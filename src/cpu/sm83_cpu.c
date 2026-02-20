@@ -140,7 +140,7 @@ enum
     C_BIT = 0x04, /* Carry Flag */
 };
 
-static inline void __sm83_set_z(struct SM83CPU *cpu, uint8_t value)
+static inline void __sm83_set_z(struct SM83CPU *cpu, uint32_t value)
 {
     /* Set Z (Bit 7) if value == 0 */
     if (value == 0) cpu->registers.f |= (1u << Z_BIT);
@@ -176,7 +176,22 @@ enum
     HALF_CARRY_INC,
 };
 
-static inline void __sm83_set_h(struct SM83CPU *cpu, int operation, uint8_t value)
+static inline void __sm83_set_h(struct SM83CPU *cpu)
+{
+    cpu->registers.f |= (1u << H_BIT);
+}
+
+static inline void __sm83_clr_h(struct SM83CPU *cpu)
+{
+    cpu->registers.f &= ~(1u << H_BIT);
+}
+
+static inline void __sm83_clear_h(struct SM83CPU *cpu)
+{
+    cpu->registers.f &= ~(1u << H_BIT);
+}
+
+static inline void __sm83_set_h_with_operation(struct SM83CPU *cpu, int operation, uint8_t value)
 {
     switch (operation)
     {
@@ -205,15 +220,49 @@ static inline void __sm83_set_h_for_add8(struct SM83CPU *cpu, uint8_t a, uint8_t
     else cpu->registers.f &= ~(1u << H_BIT);
 }
 
+static inline void __sm83_set_h_for_adc8(struct SM83CPU *cpu, uint8_t a, uint8_t b, uint8_t carry)
+{
+    if (((a & 0xF) + (b & 0xF) + carry) > 0xF) cpu->registers.f |= (1u << H_BIT);
+    else cpu->registers.f &= ~(1u << H_BIT);
+}
+
 static inline void __sm83_set_h_for_add16(struct SM83CPU *cpu, uint16_t a, uint16_t b)
 {
     if (((a & 0x0FFF) + (b & 0x0FFF)) > 0x0FFF) cpu->registers.f |= (1u << H_BIT);
     else cpu->registers.f &= ~(1u << H_BIT);
 }
 
+static inline void __sm83_set_h_for_sub8(struct SM83CPU *cpu, uint8_t a, uint8_t b)
+{
+    if ((a & 0xF) < (b & 0xF)) cpu->registers.f |= (1u << H_BIT);
+    else cpu->registers.f &= ~(1u << H_BIT);
+}
+
+static inline void __sm83_set_h_for_sbc8(struct SM83CPU *cpu, uint8_t a, uint8_t b, uint8_t carry)
+{
+    if ((a & 0xF) < ((b & 0xF) + carry)) cpu->registers.f |= (1u << H_BIT);
+    else cpu->registers.f &= ~(1u << H_BIT);
+}
+
+static inline void __sm83_set_h_for_sub16(struct SM83CPU *cpu, uint16_t a, uint16_t b)
+{
+    if ((a & 0x0FFF) < (b & 0x0FFF)) cpu->registers.f |= (1u << H_BIT);
+    else cpu->registers.f &= ~(1u << H_BIT);
+}
+
+static inline void __sm83_clr_c(struct SM83CPU *cpu)
+{
+    cpu->registers.f &= ~(1u << C_BIT);
+}
+
+static inline void __sm83_set_c(struct SM83CPU *cpu)
+{
+    cpu->registers.f |= (1u << C_BIT);
+}
+
 static inline void __sm83_set_c_for_add8(struct SM83CPU *cpu, uint16_t result)
 {
-    /* Set C (Bit 4) if a + b overflows UINT8_MAX */
+    /* Set C (Bit 4) if result overflows UINT8_MAX */
     if (result > 0xFF) cpu->registers.f |= (1u << C_BIT);
     else cpu->registers.f &= ~(1u << C_BIT);
 }
@@ -224,6 +273,28 @@ static inline void __sm83_set_c_for_add16(struct SM83CPU *cpu, uint32_t result)
     if (result > 0xFFFF) cpu->registers.f |= (1u << C_BIT);
     else cpu->registers.f &= ~(1u << C_BIT);
 }
+
+static inline void __sm83_set_c_for_sub8(struct SM83CPU *cpu, uint8_t a, uint8_t b)
+{
+    /* Set C (Bit 4) if a < b */
+    if (a < b) cpu->registers.f |= (1u << C_BIT);
+    else cpu->registers.f &= ~(1u << C_BIT);
+}
+
+static inline void __sm83_set_c_for_sbc8(struct SM83CPU *cpu, uint8_t a, uint8_t b, uint8_t carry)
+{
+    /* Set C (Bit 4) if a < b + carry */
+    if (a < (b + carry)) cpu->registers.f |= (1u << C_BIT);
+    else cpu->registers.f &= ~(1u << C_BIT);
+}
+
+static inline void __sm83_set_c_for_sub16(struct SM83CPU *cpu, uint8_t a, uint8_t b)
+{
+    /* Set C (Bit 4) if a < b */
+    if (a < b) cpu->registers.f |= (1u << C_BIT);
+    else cpu->registers.f &= ~(1u << C_BIT);
+}
+
 
 /* Joining of 8-bit Integers */
 static inline uint16_t __sm83_join_eight_bits(uint8_t hi, uint8_t lo)
@@ -240,7 +311,7 @@ static inline void __sm83_inc_r8(struct SM83CPU *cpu, uint8_t *reg8)
     /* Update the flags */
     __sm83_set_z(cpu, *reg8);
     __sm83_set_n(cpu, FLAG_ADD);
-    __sm83_set_h(cpu, HALF_CARRY_INC, orig);
+    __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, orig);
 }
 
 /* Increment the Joined 8-bit Registers and Save Back to the individual 8-bit Registers */
@@ -263,7 +334,7 @@ static inline enum SM83Error __sm83_inc_ind_r16(struct SM83CPU *cpu, uint8_t *hi
     /* Update the flags */
     __sm83_set_z(cpu, data);
     __sm83_set_n(cpu, FLAG_ADD);
-    __sm83_set_h(cpu, HALF_CARRY_INC, orig);
+    __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, orig);
     return sm83_write8(cpu, data, joined);
 }
 
@@ -276,7 +347,7 @@ static inline enum SM83Error __sm83_dec_ind_r16(struct SM83CPU *cpu, uint8_t *hi
     /* Update the flags */
     __sm83_set_z(cpu, data);
     __sm83_set_n(cpu, FLAG_SUB);
-    __sm83_set_h(cpu, HALF_CARRY_DEC, orig);
+    __sm83_set_h_with_operation(cpu, HALF_CARRY_DEC, orig);
     return sm83_write8(cpu, data, joined);
 }
 
@@ -289,7 +360,7 @@ static inline void __sm83_dec_r8(struct SM83CPU *cpu, uint8_t *reg8)
     /* Update the flags */
     __sm83_set_z(cpu, *reg8);
     __sm83_set_n(cpu, FLAG_SUB);
-    __sm83_set_h(cpu, HALF_CARRY_DEC, orig);
+    __sm83_set_h_with_operation(cpu, HALF_CARRY_DEC, orig);
 }
 
 /* Decrement the Joined 8-bit Registers and Save Back to the individual 8-bit Registers */
@@ -322,7 +393,7 @@ static inline void __sm83_load_r16_n16(struct SM83CPU *cpu, uint8_t *r16_high, u
     *r16_high = __sm83_fetch8(cpu); // high-order byte
 }
 
-/* Write to the memory location pointed by the joined register to the accumulator */
+/* Write to the memory location pointed by the joined register to the register specified */
 static inline enum SM83Error __sm83_load_r16_n8(struct SM83CPU *cpu, uint8_t high, uint8_t low, uint8_t data)
 {
     uint16_t addr = __sm83_join_eight_bits(high, low);
@@ -351,7 +422,7 @@ static inline enum SM83Error __sm83_load_operation_r16_accumulator(struct SM83CP
     return SM83_OK;
 }
 
-/* Copy the byte pointed by r16 into regiter specified */
+/* Copy the byte pointed by r16 into register specified */
 static inline void __sm83_load_r8_r16(struct SM83CPU *cpu, uint8_t *high, uint8_t *low, uint8_t *reg8)
 {
     /* Join the regs, gives us address */
@@ -361,7 +432,7 @@ static inline void __sm83_load_r8_r16(struct SM83CPU *cpu, uint8_t *high, uint8_
     *reg8 = sm83_read(cpu, addr);
 }
 
-/* Copy the byte pointed by r16 into regiter a then increment r16 and save back individual regs */
+/* Copy the byte pointed by r16 into register a then increment r16 and save back individual regs */
 static inline void __sm83_load_operation_accumulator_r16(struct SM83CPU *cpu, int operation, uint8_t *high, uint8_t *low)
 {
     /* Copy the Byte First */
@@ -390,14 +461,15 @@ static inline void __sm83_add_r16_r16(struct SM83CPU *cpu, uint8_t *dst_high, ui
     /* Add the Joined Registers */
     uint32_t result = (uint32_t)r16_dst + (uint32_t)r16_src;
 
-    /* Save Back the Result */
-    *dst_high = result >> 8;
-    *dst_low = result & 0XFF;
-
     /* Update Flags */
+    __sm83_set_z(cpu, result);
     __sm83_set_n(cpu, FLAG_ADD);
     __sm83_set_h_for_add16(cpu, r16_dst, r16_src);
     __sm83_set_c_for_add16(cpu, result);
+
+    /* Save Back the Result */
+    *dst_high = result >> 8;
+    *dst_low = result & 0XFF;
 }
 
 /* Add Two Scalar Registers and Update the Flags */
@@ -406,13 +478,130 @@ static inline void __sm83_add_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *
     /* Add the Joined Registers */
     uint16_t result = (uint16_t)*dst + (uint16_t)*src;
 
-    /* Save Back the result to dst register */
-    *dst = (uint8_t) result;
-
     /* Update Flags */
+    __sm83_set_z(cpu, (uint16_t)result);
     __sm83_set_n(cpu, FLAG_ADD);
     __sm83_set_h_for_add8(cpu, *dst, *src);
     __sm83_set_c_for_add8(cpu, result);
+
+    /* Save Back the result to dst register */
+    *dst = (uint8_t) result;
+}
+
+/* Add Two Scalar Registers with the carry flag and Update the Flags */
+static inline void __sm83_adc_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *src)
+{
+    /* Isolate the Carry Flag from the previous operation */
+    uint8_t carry = (cpu->registers.f >> C_BIT) & 1;
+
+    /* Add the Joined Registers */
+    uint16_t result = (uint16_t)*dst + (uint16_t)*src + carry;
+
+    /* Update Flags */
+    __sm83_set_z(cpu, (uint16_t)result);
+    __sm83_set_n(cpu, FLAG_ADD);
+    __sm83_set_h_for_adc8(cpu, *dst, *src, carry);
+    __sm83_set_c_for_add8(cpu, result);
+
+    /* Save Back the result to dst register */
+    *dst = (uint8_t) result;
+}
+
+/* Subtract Two Scalar Registers and Update the Flags */
+static inline void __sm83_sub_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *src)
+{
+    /* Subtract the Joined Registers */
+    uint16_t result = (uint16_t)*dst - (uint16_t)*src;
+
+    /* Update Flags */
+    __sm83_set_z(cpu, (uint16_t)result);
+    __sm83_set_n(cpu, FLAG_SUB);
+    __sm83_set_h_for_sub8(cpu, *dst, *src);
+    __sm83_set_c_for_sub8(cpu, *dst, *src);
+
+    /* Save Back the result to dst register */
+    *dst = (uint8_t) result;
+}
+
+/* Subtract Two Scalar Registers with the carry flag and Update the Flags */
+static inline void __sm83_sbc_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *src)
+{
+    /* Isolate the Carry Flag from the previous operation */
+    uint8_t carry = (cpu->registers.f >> C_BIT) & 1;
+
+    /* Subtract the Registers with Carry */
+    uint16_t result = (uint16_t)*dst - (uint16_t)*src - carry;
+
+    /* Update Flags */
+    __sm83_set_z(cpu, (uint16_t)result);
+    __sm83_set_n(cpu, FLAG_SUB);
+    __sm83_set_h_for_sbc8(cpu, *dst, *src, carry);
+    __sm83_set_c_for_sbc8(cpu, *dst, *src, carry);
+
+    /* Save Back the result to dst register */
+    *dst = (uint8_t) result;
+}
+
+/* And Two Scalar Values and Update the Flags */
+static inline void __sm83_and_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *src)
+{
+    /* AND the Values */
+    uint8_t result = *dst & *src;
+
+    /* Update Flags */
+    __sm83_set_z(cpu, (uint8_t)result);
+    __sm83_set_n(cpu, FLAG_ADD); /* Clears N */
+    __sm83_set_h(cpu); /* Set H */
+    __sm83_clr_c(cpu); /* Clear C */
+
+    /* Save Back the result to dst register */
+    *dst = result;
+}
+
+/* Xor Two Scalar Values and Update the Flags */
+static inline void __sm83_xor_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *src)
+{
+    /* xor the Values */
+    uint8_t result = *dst ^ *src;
+
+    /* Update Flags */
+    __sm83_set_z(cpu, (uint8_t)result);
+    __sm83_set_n(cpu, FLAG_ADD); /* Clears N */
+    __sm83_clr_h(cpu); /* Clear H */
+    __sm83_clr_c(cpu); /* Clear C */
+
+    /* Save Back the result to dst register */
+    *dst = result;
+}
+
+/* Compare Two Scalar Registers and Update the Flags */
+static inline void __sm83_cp_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *src)
+{
+    /* Compare the Joined Registers but dont save back the result */
+    uint16_t result = (uint16_t)*dst - (uint16_t)*src;
+
+    /* Update Flags */
+    __sm83_set_z(cpu, (uint16_t)result);
+    __sm83_set_n(cpu, FLAG_SUB);
+    __sm83_set_h_for_sub8(cpu, *dst, *src);
+    __sm83_set_c_for_sub8(cpu, *dst, *src);
+
+}
+
+/* OR Two Scalar Values and Update the Flags */
+static inline void __sm83_or_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *src)
+{
+    /* OR the Values */
+    uint8_t result = *dst | *src;
+
+    /* Update Flags */
+    __sm83_set_z(cpu, (uint8_t)result);
+    __sm83_set_n(cpu, FLAG_ADD); /* Clears N */
+    __sm83_clr_h(cpu); /* Clear H */
+    __sm83_clr_c(cpu); /* Clear C */
+
+    /* Save Back the result to dst register */
+    *dst = result;
 }
 
 /* Callback Function to Check a negative Jump Condition */
@@ -551,7 +740,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* Clear Z N H */
         __sm83_set_z(cpu, 0XFF);
         __sm83_set_n(cpu, FLAG_ADD);
-        __sm83_set_h(cpu, HALF_CARRY_INC, 0);
+        __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, 0);
 
         /* Set C bit according to result */
         if (a & 0x80)
@@ -673,7 +862,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* Clear Z N H */
         __sm83_set_z(cpu, 0XFF);
         __sm83_set_n(cpu, FLAG_ADD);
-        __sm83_set_h(cpu, HALF_CARRY_INC, 0);
+        __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, 0);
 
         /* Set C bit according to result */
         if (a & 0x80)
@@ -780,7 +969,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* Clear Z N H */
         __sm83_set_z(cpu, 0XFF);
         __sm83_set_n(cpu, FLAG_ADD);
-        __sm83_set_h(cpu, HALF_CARRY_INC, 0);
+        __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, 0);
 
         /* Set C bit according to old bit 7 */
         cpu->registers.f |= (bit7 << C_BIT);
@@ -878,7 +1067,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* Clear Z N H */
         __sm83_set_z(cpu, 0XFF);
         __sm83_set_n(cpu, FLAG_ADD);
-        __sm83_set_h(cpu, HALF_CARRY_INC, 0);
+        __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, 0);
 
         /* Set C bit according to old carry */
         cpu->registers.f |= (bit0 << C_BIT);
@@ -1585,6 +1774,576 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         __sm83_load_r8_r8(&cpu->registers.l, &cpu->registers.a);
         /* emit disassembly */
         EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld l, a\n");
+    } break;
+
+    case OP_LD_HL_B:
+    {
+        /* LD HL, B */
+        enum SM83Error ret = __sm83_load_r16_n8(cpu, cpu->registers.h, cpu->registers.l, cpu->registers.b);
+        if (ret != SM83_OK) return SM83_ERR_INVALID_OPCODE;
+        /* EMIT Disassembly */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hl], b\n");
+    } break;
+
+    case OP_LD_HL_C:
+    {
+        /* LD HL, C */
+        enum SM83Error ret = __sm83_load_r16_n8(cpu, cpu->registers.h, cpu->registers.l, cpu->registers.c);
+        if (ret != SM83_OK) return SM83_ERR_INVALID_OPCODE;
+        /* EMIT Disassembly */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hl], c\n");
+    } break;
+
+    case OP_LD_HL_D:
+    {
+        /* LD HL, D */
+        enum SM83Error ret = __sm83_load_r16_n8(cpu, cpu->registers.h, cpu->registers.l, cpu->registers.d);
+        if (ret != SM83_OK) return SM83_ERR_INVALID_OPCODE;
+        /* EMIT Disassembly */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hl], d\n");
+    } break;
+
+    case OP_LD_HL_E:
+    {
+        /* LD HL, E */
+        enum SM83Error ret = __sm83_load_r16_n8(cpu, cpu->registers.h, cpu->registers.l, cpu->registers.e);
+        if (ret != SM83_OK) return SM83_ERR_INVALID_OPCODE;
+        /* EMIT Disassembly */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hl], e\n");
+    } break;
+
+    case OP_LD_HL_H:
+    {
+        /* LD HL, H */
+        enum SM83Error ret = __sm83_load_r16_n8(cpu, cpu->registers.h, cpu->registers.l, cpu->registers.h);
+        if (ret != SM83_OK) return SM83_ERR_INVALID_OPCODE;
+        /* EMIT Disassembly */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hl], h\n");
+    } break;
+
+    case OP_LD_HL_L:
+    {
+        /* LD HL, L */
+        enum SM83Error ret = __sm83_load_r16_n8(cpu, cpu->registers.h, cpu->registers.l, cpu->registers.l);
+        if (ret != SM83_OK) return SM83_ERR_INVALID_OPCODE;
+        /* EMIT Disassembly */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hl], l\n");
+    } break;
+
+    case OP_HALT:
+    {
+        /* Halt the Execution Process */
+        fprintf(stderr, "TODO: HALT Not handled Yet!\n");
+        abort();
+    } break;
+
+    case OP_LD_HL_A:
+    {
+        /* LD HL, A */
+        enum SM83Error ret = __sm83_load_r16_n8(cpu, cpu->registers.h, cpu->registers.l, cpu->registers.a);
+        if (ret != SM83_OK) return SM83_ERR_INVALID_OPCODE;
+        /* EMIT Disassembly */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hl], a\n");
+    } break;
+
+    case OP_LD_A_B:
+    {
+        /* LD A, B */
+        __sm83_load_r8_r8(&cpu->registers.a, &cpu->registers.b);
+        /* Emit Disasm */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, b\n");
+    } break;
+
+    case OP_LD_A_C:
+    {
+        /* LD A, C */
+        __sm83_load_r8_r8(&cpu->registers.a, &cpu->registers.c);
+        /* Emit Disasm */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, c\n");
+    } break;
+
+    case OP_LD_A_D:
+    {
+        /* LD A, D */
+        __sm83_load_r8_r8(&cpu->registers.a, &cpu->registers.d);
+        /* Emit Disasm */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, d\n");
+    } break;
+
+    case OP_LD_A_E:
+    {
+        /* LD A, E */
+        __sm83_load_r8_r8(&cpu->registers.a, &cpu->registers.e);
+        /* Emit Disasm */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, e\n");
+    } break;
+
+    case OP_LD_A_H:
+    {
+        /* LD A, H */
+        __sm83_load_r8_r8(&cpu->registers.a, &cpu->registers.h);
+        /* Emit Disasm */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, h\n");
+    } break;
+
+    case OP_LD_A_L:
+    {
+        /* LD A, L */
+        __sm83_load_r8_r8(&cpu->registers.a, &cpu->registers.l);
+        /* Emit Disasm */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, l\n");
+    } break;
+
+    case OP_LD_A_HL:
+    {
+        /* LD A, HL */
+        __sm83_load_r8_r16(cpu, &cpu->registers.h, &cpu->registers.l, &cpu->registers.a);
+        /* Emit Disasm */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, [hl]\n");
+    } break;
+
+    case OP_LD_A_A:
+    {
+        /* LD A, A */
+        __sm83_load_r8_r8(&cpu->registers.a, &cpu->registers.a);
+        /* Emit Disasm */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, a\n");
+    } break;
+
+    case OP_ADD_A_B:
+    {
+        /* ADD A, B */
+        __sm83_add_r8_r8(cpu, &cpu->registers.a, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add a, b\n");
+    } break;
+
+    case OP_ADD_A_C:
+    {
+        /* ADD A, C */
+        __sm83_add_r8_r8(cpu, &cpu->registers.a, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add a, c\n");
+    } break;
+
+    case OP_ADD_A_D:
+    {
+        /* ADD A, D */
+        __sm83_add_r8_r8(cpu, &cpu->registers.a, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add a, d\n");
+    } break;
+
+    case OP_ADD_A_E:
+    {
+        /* ADD A, E */
+        __sm83_add_r8_r8(cpu, &cpu->registers.a, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add a, e\n");
+    } break;
+
+    case OP_ADD_A_H:
+    {
+        /* ADD A, H */
+        __sm83_add_r8_r8(cpu, &cpu->registers.a, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add a, h\n");
+    } break;
+
+    case OP_ADD_A_L:
+    {
+        /* ADD A, L */
+        __sm83_add_r8_r8(cpu, &cpu->registers.a, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add a, l\n");
+    } break;
+
+    case OP_ADD_A_HL:
+    {
+        /* ADD A, HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_add_r8_r8(cpu, &cpu->registers.a, &data);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add a, [hl]\n");
+    } break;
+
+    case OP_ADD_A_A:
+    {
+        /* ADD A, A */
+        __sm83_add_r8_r8(cpu, &cpu->registers.a, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add a, a\n");
+    } break;
+
+
+    case OP_ADC_A_B:
+    {
+        /* ADC, A, B */
+        __sm83_adc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "adc, a, b\n");
+    } break;
+
+    case OP_ADC_A_C:
+    {
+        /* ADC, A, C */
+        __sm83_adc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "adc, a, c\n");
+    } break;
+
+    case OP_ADC_A_D:
+    {
+        /* ADC, A, D */
+        __sm83_adc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "adc, a, d\n");
+    } break;
+
+    case OP_ADC_A_E:
+    {
+        /* ADC, A, E */
+        __sm83_adc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "adc, a, e\n");
+    } break;
+
+    case OP_ADC_A_H:
+    {
+        /* ADC, A, H */
+        __sm83_adc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "adc, a, h\n");
+    } break;
+
+    case OP_ADC_A_L:
+    {
+        /* ADC, A, L */
+        __sm83_adc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "adc, a, l\n");
+    } break;
+
+    case OP_ADC_A_HL:
+    {
+        /* ADC, A_, L */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_adc_r8_r8(cpu, &cpu->registers.a, &data);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "adc, a_, l\n");
+    } break;
+
+    case OP_ADC_A_A:
+    {
+        /* ADC, A, A */
+        __sm83_adc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "adc, a, a\n");
+    } break;
+
+    case OP_SUB_A_B:
+    {
+        /* SUB A, B */
+        __sm83_sub_r8_r8(cpu, &cpu->registers.a, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sub a, b\n");
+    } break;
+
+    case OP_SUB_A_C:
+    {
+        /* SUB A, C */
+        __sm83_sub_r8_r8(cpu, &cpu->registers.a, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sub a, c\n");
+    } break;
+
+    case OP_SUB_A_D:
+    {
+        /* SUB A, D */
+        __sm83_sub_r8_r8(cpu, &cpu->registers.a, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sub a, d\n");
+    } break;
+
+    case OP_SUB_A_E:
+    {
+        /* SUB A, E */
+        __sm83_sub_r8_r8(cpu, &cpu->registers.a, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sub a, e\n");
+    } break;
+
+    case OP_SUB_A_H:
+    {
+        /* SUB A, H */
+        __sm83_sub_r8_r8(cpu, &cpu->registers.a, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sub a, h\n");
+    } break;
+
+    case OP_SUB_A_L:
+    {
+        /* SUB A, L */
+        __sm83_sub_r8_r8(cpu, &cpu->registers.a, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sub a, l\n");
+    } break;
+
+    case OP_SUB_A_HL:
+    {
+        /* SUB A_, L */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_sub_r8_r8(cpu, &cpu->registers.a, &data);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sub a, [hl]\n");
+    } break;
+
+    case OP_SUB_A_A:
+    {
+        /* SUB A, A */
+        __sm83_sub_r8_r8(cpu, &cpu->registers.a, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sub a, a\n");
+    } break;
+
+
+    case OP_SBC_A_B: {
+        /* SBC A, B */
+        __sm83_sbc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sbc a, b\n");
+    } break;
+    case OP_SBC_A_C: {
+        /* SBC A, C */
+        __sm83_sbc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sbc a, c\n");
+    } break;
+    case OP_SBC_A_D: {
+        /* SBC A, D */
+        __sm83_sbc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sbc a, d\n");
+    } break;
+    case OP_SBC_A_E: {
+        /* SBC A, E */
+        __sm83_sbc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sbc a, e\n");
+    } break;
+    case OP_SBC_A_H: {
+        /* SBC A, H */
+        __sm83_sbc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sbc a, h\n");
+    } break;
+    case OP_SBC_A_L: {
+        /* SBC A, L */
+        __sm83_sbc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sbc a, l\n");
+    } break;
+    case OP_SBC_A_HL: {
+        /* SBC A_, L */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_sbc_r8_r8(cpu, &cpu->registers.a, &data);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sbc a, [hl]\n");
+    } break;
+    case OP_SBC_A_A: {
+        /* SBC A, A */
+        __sm83_sbc_r8_r8(cpu, &cpu->registers.a, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sbc a, a\n");
+    } break;
+
+    case OP_AND_A_B: {
+        /* AND A, B */
+        __sm83_and_r8_r8(cpu, &cpu->registers.a, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "and a, b\n");
+    } break;
+    case OP_AND_A_C: {
+        /* AND A, C */
+        __sm83_and_r8_r8(cpu, &cpu->registers.a, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "and a, c\n");
+    } break;
+    case OP_AND_A_D: {
+        /* AND A, D */
+        __sm83_and_r8_r8(cpu, &cpu->registers.a, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "and a, d\n");
+    } break;
+    case OP_AND_A_E: {
+        /* AND A, E */
+        __sm83_and_r8_r8(cpu, &cpu->registers.a, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "and a, e\n");
+    } break;
+    case OP_AND_A_H: {
+        /* AND A, H */
+        __sm83_and_r8_r8(cpu, &cpu->registers.a, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "and a, h\n");
+    } break;
+    case OP_AND_A_L: {
+        /* AND A, L */
+        __sm83_and_r8_r8(cpu, &cpu->registers.a, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "and a, l\n");
+    } break;
+    case OP_AND_A_HL: {
+        /* AND A, HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_and_r8_r8(cpu, &cpu->registers.a, &data);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "and a, [hl]\n");
+    } break;
+    case OP_AND_A_A: {
+        /* AND A, A */
+        __sm83_and_r8_r8(cpu, &cpu->registers.a, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "and a, a\n");
+    } break;
+
+    case OP_XOR_A_B:
+    {
+        /* XOR A, B */
+        __sm83_xor_r8_r8(cpu, &cpu->registers.a, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "xor a, b\n");
+    } break;
+
+    case OP_XOR_A_C:
+    {
+        /* XOR A, C */
+        __sm83_xor_r8_r8(cpu, &cpu->registers.a, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "xor a, c\n");
+    } break;
+
+    case OP_XOR_A_D:
+    {
+        /* XOR A, D */
+        __sm83_xor_r8_r8(cpu, &cpu->registers.a, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "xor a, d\n");
+    } break;
+
+    case OP_XOR_A_E:
+    {
+        /* XOR A, E */
+        __sm83_xor_r8_r8(cpu, &cpu->registers.a, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "xor a, e\n");
+    } break;
+
+    case OP_XOR_A_H:
+    {
+        /* XOR A, H */
+        __sm83_xor_r8_r8(cpu, &cpu->registers.a, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "xor a, h\n");
+    } break;
+
+    case OP_XOR_A_L:
+    {
+        /* XOR A, L */
+        __sm83_xor_r8_r8(cpu, &cpu->registers.a, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "xor a, l\n");
+    } break;
+
+    case OP_XOR_A_HL:
+    {
+        /* XOR A, HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_xor_r8_r8(cpu, &cpu->registers.a, &data);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "xor a, [hl]\n");
+    } break;
+
+    case OP_XOR_A_A:
+    {
+        /* XOR A, A */
+        __sm83_xor_r8_r8(cpu, &cpu->registers.a, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "xor a, a\n");
+    } break;
+
+    case OP_OR_A_B:
+    {
+        /* OR A, B */
+        __sm83_or_r8_r8(cpu, &cpu->registers.a, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "or a, b\n");
+    } break;
+
+    case OP_OR_A_C:
+    {
+        /* OR A, C */
+        __sm83_or_r8_r8(cpu, &cpu->registers.a, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "or a, c\n");
+    } break;
+
+    case OP_OR_A_D:
+    {
+        /* OR A, D */
+        __sm83_or_r8_r8(cpu, &cpu->registers.a, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "or a, d\n");
+    } break;
+
+    case OP_OR_A_E:
+    {
+        /* OR A, E */
+        __sm83_or_r8_r8(cpu, &cpu->registers.a, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "or a, e\n");
+    } break;
+
+    case OP_OR_A_H:
+    {
+        /* OR A, H */
+        __sm83_or_r8_r8(cpu, &cpu->registers.a, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "or a, h\n");
+    } break;
+
+    case OP_OR_A_L:
+    {
+        /* OR A, L */
+        __sm83_or_r8_r8(cpu, &cpu->registers.a, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "or a, l\n");
+    } break;
+
+    case OP_OR_A_HL:
+    {
+        /* OR A, HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_or_r8_r8(cpu, &cpu->registers.a, &data);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "or a, [hl]\n");
+    } break;
+
+    case OP_OR_A_A:
+    {
+        /* OR A, A */
+        __sm83_or_r8_r8(cpu, &cpu->registers.a, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "or a, a\n");
+    } break;
+
+    case OP_CP_A_B:
+    {
+        /* CP A, B */
+        __sm83_cp_r8_r8(cpu, &cpu->registers.a, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cp a, b\n");
+    } break;
+
+    case OP_CP_A_C:
+    {
+        /* CP A, C */
+        __sm83_cp_r8_r8(cpu, &cpu->registers.a, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cp a, c\n");
+    } break;
+
+    case OP_CP_A_D:
+    {
+        /* CP A, D */
+        __sm83_cp_r8_r8(cpu, &cpu->registers.a, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cp a, d\n");
+    } break;
+
+    case OP_CP_A_E:
+    {
+        /* CP A, E */
+        __sm83_cp_r8_r8(cpu, &cpu->registers.a, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cp a, e\n");
+    } break;
+
+    case OP_CP_A_H:
+    {
+        /* CP A, H */
+        __sm83_cp_r8_r8(cpu, &cpu->registers.a, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cp a, h\n");
+    } break;
+
+    case OP_CP_A_L:
+    {
+        /* CP A, L */
+        __sm83_cp_r8_r8(cpu, &cpu->registers.a, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cp a, l\n");
+    } break;
+
+    case OP_CP_A_HL:
+    {
+        /* CP A, HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_cp_r8_r8(cpu, &cpu->registers.a, &data);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cp a, [hl]\n");
+    } break;
+
+    case OP_CP_A_A:
+    {
+        /* CP A, A */
+        __sm83_cp_r8_r8(cpu, &cpu->registers.a, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cp a, a\n");
     } break;
 
 
