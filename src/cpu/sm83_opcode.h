@@ -117,7 +117,88 @@
     XOPCODE(LD_L_H, 0x6C)  \
     XOPCODE(LD_L_L, 0x6D)  \
     XOPCODE(LD_L_HL, 0x6E)  \
-    XOPCODE(LD_L_A, 0x6F)
+    XOPCODE(LD_L_A, 0x6F)\
+    XOPCODE(LD_HL_B, 0x70) \
+    XOPCODE(LD_HL_C, 0x71) \
+    XOPCODE(LD_HL_D, 0x72)  \
+    XOPCODE(LD_HL_E, 0x73)  \
+    XOPCODE(LD_HL_H, 0x74)  \
+    XOPCODE(LD_HL_L, 0x75)  \
+    XOPCODE(HALT, 0x76)  \
+    XOPCODE(LD_HL_A, 0x77)  \
+    XOPCODE(LD_A_B, 0x78)  \
+    XOPCODE(LD_A_C, 0x79)  \
+    XOPCODE(LD_A_D, 0x7A)  \
+    XOPCODE(LD_A_E, 0x7B)  \
+    XOPCODE(LD_A_H, 0x7C)  \
+    XOPCODE(LD_A_L, 0x7D)  \
+    XOPCODE(LD_A_HL, 0x7E)  \
+    XOPCODE(LD_A_A, 0x7F)\
+    XOPCODE(ADD_A_B, 0x80) \
+    XOPCODE(ADD_A_C, 0x81) \
+    XOPCODE(ADD_A_D, 0x82)  \
+    XOPCODE(ADD_A_E, 0x83)  \
+    XOPCODE(ADD_A_H, 0x84)  \
+    XOPCODE(ADD_A_L, 0x85)  \
+    XOPCODE(ADD_A_HL, 0x86)  \
+    XOPCODE(ADD_A_A, 0x87)  \
+    XOPCODE(ADC_A_B, 0x88)  \
+    XOPCODE(ADC_A_C, 0x89)  \
+    XOPCODE(ADC_A_D, 0x8A)  \
+    XOPCODE(ADC_A_E, 0x8B)  \
+    XOPCODE(ADC_A_H, 0x8C)  \
+    XOPCODE(ADC_A_L, 0x8D)  \
+    XOPCODE(ADC_A_HL, 0x8E)  \
+    XOPCODE(ADC_A_A, 0x8F)\
+    XOPCODE(SUB_A_B, 0x90) \
+    XOPCODE(SUB_A_C, 0x91) \
+    XOPCODE(SUB_A_D, 0x92)  \
+    XOPCODE(SUB_A_E, 0x93)  \
+    XOPCODE(SUB_A_H, 0x94)  \
+    XOPCODE(SUB_A_L, 0x95)  \
+    XOPCODE(SUB_A_HL, 0x96)  \
+    XOPCODE(SUB_A_A, 0x97)  \
+    XOPCODE(SBC_A_B, 0x98)  \
+    XOPCODE(SBC_A_C, 0x99)  \
+    XOPCODE(SBC_A_D, 0x9A)  \
+    XOPCODE(SBC_A_E, 0x9B)  \
+    XOPCODE(SBC_A_H, 0x9C)  \
+    XOPCODE(SBC_A_L, 0x9D)  \
+    XOPCODE(SBC_A_HL, 0x9E)  \
+    XOPCODE(SBC_A_A, 0x9F)\
+    XOPCODE(AND_A_B, 0xA0) \
+    XOPCODE(AND_A_C, 0xA1) \
+    XOPCODE(AND_A_D, 0xA2)  \
+    XOPCODE(AND_A_E, 0xA3)  \
+    XOPCODE(AND_A_H, 0xA4)  \
+    XOPCODE(AND_A_L, 0xA5)  \
+    XOPCODE(AND_A_HL, 0xA6)  \
+    XOPCODE(AND_A_A, 0xA7)  \
+    XOPCODE(XOR_A_B, 0xA8)  \
+    XOPCODE(XOR_A_C, 0xA9)  \
+    XOPCODE(XOR_A_D, 0xAA)  \
+    XOPCODE(XOR_A_E, 0xAB)  \
+    XOPCODE(XOR_A_H, 0xAC)  \
+    XOPCODE(XOR_A_L, 0xAD)  \
+    XOPCODE(XOR_A_HL, 0xAE)  \
+    XOPCODE(XOR_A_A, 0xAF)\
+    XOPCODE(OR_A_B, 0xB0) \
+    XOPCODE(OR_A_C, 0xB1) \
+    XOPCODE(OR_A_D, 0xB2)  \
+    XOPCODE(OR_A_E, 0xB3)  \
+    XOPCODE(OR_A_H, 0xB4)  \
+    XOPCODE(OR_A_L, 0xB5)  \
+    XOPCODE(OR_A_HL, 0xB6)  \
+    XOPCODE(OR_A_A, 0xB7)  \
+    XOPCODE(CP_A_B, 0xB8)  \
+    XOPCODE(CP_A_C, 0xB9)  \
+    XOPCODE(CP_A_D, 0xBA)  \
+    XOPCODE(CP_A_E, 0xBB)  \
+    XOPCODE(CP_A_H, 0xBC)  \
+    XOPCODE(CP_A_L, 0xBD)  \
+    XOPCODE(CP_A_HL, 0xBE)  \
+    XOPCODE(CP_A_A, 0xBF)\
+    
 
 enum SM83OP
 {
