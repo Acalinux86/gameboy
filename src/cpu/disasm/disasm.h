@@ -31,13 +31,13 @@ void sm83_dump_disasm(const struct Disasm *disasm, FILE *fp);
 #define MAX_TMP_BUF_SIZE 256
 extern char tmp_buf[MAX_TMP_BUF_SIZE];
 
-#define EMIT_DISASM(emit_status, err, disasm, fmt, ...)         \
-    ({                                                          \
+#define EMIT_DISASM(emit_status, err, disasm, ...)              \
+    do {                                                        \
         if (emit_status) {                                      \
-            tmp_sprintf(tmp_buf, fmt, ##__VA_ARGS__);           \
+            tmp_sprintf(tmp_buf, __VA_ARGS__);                  \
             int __ret = sm83_disasm_append((disasm), tmp_buf);  \
             if (__ret != 0) return err;                         \
         }                                                       \
-    })
+    } while (0)
 
 #endif /* DISASM_H_*/
