@@ -24,7 +24,7 @@ enum MapSection
 
 /* Read Only Memory Address SPACE */
 #define ROM_START 0x0000
-#define ROM_END   0x8000
+#define ROM_END   0x7FFF
 
 /* Video Ram Address SPACE */
 #define VIDEO_RAM_START 0x8000
@@ -34,11 +34,11 @@ enum MapSection
 #define EXTERNAL_RAM_START 0xA000
 #define EXTERNAL_RAM_END   0xBFFF
 
-/* Read Only Memory Address SPACE */
+/* Work RAM Address SPACE */
 #define WORK_RAM_START 0xC000
 #define WORK_RAM_END   0xDFFF
 
-/* Work RAM Address SPACE */
+/* Echo RAM Address SPACE */
 #define ECHO_RAM_START 0xE000
 #define ECHO_RAM_END   0xFDFF
 
@@ -86,7 +86,7 @@ typedef byte EXRAM[EXRAM_SIZE];
 
 /* 8 KiB of Work RAM*/
 #define WRAM_SIZE 8*1024
-typedef byte WRAM[VRAM_SIZE];
+typedef byte WRAM[WRAM_SIZE];
 
 /* 160 Bytes of OAM */
 #define OAM_SIZE 160

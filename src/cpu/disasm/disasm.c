@@ -31,7 +31,7 @@ static inline char *__sm83_strdup(char *src)
     }
 
     /* Copy the Source String into Destination String */
-    strncpy(dst, src, length);
+    strcpy(dst, src);
 
     /* Null Terminate the String */
     dst[length] = '\0';
