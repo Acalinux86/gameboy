@@ -83,8 +83,8 @@ const uint16_t PhysicalAddressSpace[ADDRESS_SPACES_COUNT][2] = {
     {ECHO_RAM_START         , ECHO_RAM_END         },
     {OBJECT_RAM_START       , OBJECT_RAM_END       },
     {PROHIBITED_SPACE_START , PROHIBITED_SPACE_END },
-    {HIGH_RAM_START         , HIGH_RAM_END         },
     {IO_START               , IO_END               },
+    {HIGH_RAM_START         , HIGH_RAM_END         },
     {IER_START              , IER_END              }
 };
 
@@ -103,28 +103,21 @@ enum MapSection __mmu_map_addr_to_section(const uint16_t addr)
     return SECTION_ILLEGAL;
 }
 
-static inline uint16_t __mmu_calculate_virtual_addr(uint16_t allocated, uint16_t end, uint16_t physical_addr)
+static inline uint16_t __mmu_calculate_virtual_addr(uint16_t allocated, uint16_t start, uint16_t end, uint16_t physical_addr)
 {
-    /*
-      We are calculating the index within the allocated buffer for each section.
-      e,g 8 Kib allocated
-      start = 0x0000
-      end = 0xCFFF
-      addr = 0xBFFF
-
-      index = end - addr
-      index < 8 Kib
-      index >= 0 => uint16 will check this for us
-    */
+    printf("START => 0x%04x | ", start);
+    printf("END   => 0x%04x | ", end);
+    printf("physical addr => 0x%04x | ", physical_addr);
     assert(physical_addr <= end);
-    uint16_t index = end - physical_addr;
-    assert(index <= allocated);
+    uint16_t index = physical_addr - start;
+    printf("Calculate index => 0x%04x\n", index);
+    assert(index < allocated);
     return index;
 }
 
-
 int mmu_write(struct MMU *mmu, uint16_t addr, byte value)
 {
+    printf("write: => ");
     if (mmu == NULL) return -1;
     enum MapSection section = __mmu_map_addr_to_section(addr);
 
@@ -134,7 +127,7 @@ int mmu_write(struct MMU *mmu, uint16_t addr, byte value)
     case SECTION_WORK_RAM:
     {
         /* Writes to WRAM */
-        uint16_t index = __mmu_calculate_virtual_addr(WRAM_SIZE, WORK_RAM_END, addr);
+        uint16_t index = __mmu_calculate_virtual_addr(WRAM_SIZE, WORK_RAM_START, WORK_RAM_END, addr);
         mmu->wram[index] = value;
     } break;
 
@@ -144,42 +137,42 @@ int mmu_write(struct MMU *mmu, uint16_t addr, byte value)
           any Writes to Echo RAM mirrors Work Ram
           They are the same sizes
         */
-        uint16_t index = __mmu_calculate_virtual_addr(WRAM_SIZE, ECHO_RAM_END, addr);
+        uint16_t index = __mmu_calculate_virtual_addr(WRAM_SIZE, ECHO_RAM_START, ECHO_RAM_END, addr);
         mmu->wram[index] = value;
     } break;
 
     case SECTION_VIDEO_RAM:
     {
         /* Write to Video RAM */
-        uint16_t index = __mmu_calculate_virtual_addr(VRAM_SIZE, VIDEO_RAM_END, addr);
+        uint16_t index = __mmu_calculate_virtual_addr(VRAM_SIZE, VIDEO_RAM_START, VIDEO_RAM_END, addr);
         mmu->vram[index] = value;
     } break;
 
     case SECTION_EXTERNAL_RAM:
     {
         /* Write to External RAM */
-        uint16_t index = __mmu_calculate_virtual_addr(EXRAM_SIZE, EXTERNAL_RAM_END, addr);
+        uint16_t index = __mmu_calculate_virtual_addr(EXRAM_SIZE, EXTERNAL_RAM_START, EXTERNAL_RAM_END, addr);
         mmu->exram[index] = value;
     } break;
 
     case SECTION_OBJECT_RAM:
     {
         /* Write to Object Attribute Memory RAM */
-        uint16_t index = __mmu_calculate_virtual_addr(OAM_SIZE, OBJECT_RAM_END, addr);
+        uint16_t index = __mmu_calculate_virtual_addr(OAM_SIZE, OBJECT_RAM_START, OBJECT_RAM_END, addr);
         mmu->oam[index] = value;
     } break;
 
     case SECTION_INPUT_OUTPUT:
     {
         /* Write to Input Output Memory RAM */
-        uint16_t index = __mmu_calculate_virtual_addr(IO_SIZE, IO_END, addr);
+        uint16_t index = __mmu_calculate_virtual_addr(IO_SIZE, IO_START, IO_END, addr);
         mmu->io[index] = value;
     } break;
 
     case SECTION_HIGH_RAM:
     {
         /* Write to HIGH RAM */
-        uint16_t index = __mmu_calculate_virtual_addr(HRAM_SIZE, HIGH_RAM_END, addr);
+        uint16_t index = __mmu_calculate_virtual_addr(HRAM_SIZE, HIGH_RAM_START, HIGH_RAM_END, addr);
         mmu->hram[index] = value;
     } break;
 
@@ -202,6 +195,7 @@ int mmu_write(struct MMU *mmu, uint16_t addr, byte value)
 
 byte mmu_read(struct MMU *mmu, uint16_t addr)
 {
+    printf("read : => ");
     enum MapSection section = __mmu_map_addr_to_section(addr);
 
     /* Reussable Variable */
@@ -211,25 +205,25 @@ byte mmu_read(struct MMU *mmu, uint16_t addr)
     {
     case SECTION_ROM:
     {
-        virtual_addr = __mmu_calculate_virtual_addr(mmu->rom.rom_size, ROM_END, addr);
+        virtual_addr = __mmu_calculate_virtual_addr(mmu->rom.rom_size, ROM_START, ROM_END, addr);
         return mmu->rom.rom_bytes[virtual_addr];
     }
 
     case SECTION_VIDEO_RAM:
     {
-        virtual_addr = __mmu_calculate_virtual_addr(VRAM_SIZE, VIDEO_RAM_END, addr);
+        virtual_addr = __mmu_calculate_virtual_addr(VRAM_SIZE, VIDEO_RAM_START, VIDEO_RAM_END, addr);
         return mmu->vram[virtual_addr];
     }
 
     case SECTION_EXTERNAL_RAM:
     {
-        virtual_addr = __mmu_calculate_virtual_addr(EXRAM_SIZE, EXTERNAL_RAM_END, addr);
+        virtual_addr = __mmu_calculate_virtual_addr(EXRAM_SIZE, EXTERNAL_RAM_START, EXTERNAL_RAM_END, addr);
         return mmu->exram[virtual_addr];
     }
 
     case SECTION_WORK_RAM:
     {
-        virtual_addr = __mmu_calculate_virtual_addr(WRAM_SIZE, WORK_RAM_END, addr);
+        virtual_addr = __mmu_calculate_virtual_addr(WRAM_SIZE, WORK_RAM_START, WORK_RAM_END, addr);
         return mmu->wram[virtual_addr];
     }
 
@@ -241,25 +235,25 @@ byte mmu_read(struct MMU *mmu, uint16_t addr)
           we should be able to use the calculated index within the
           work ram buffer
         */
-        virtual_addr = __mmu_calculate_virtual_addr(WRAM_SIZE, ECHO_RAM_END, addr);
+        virtual_addr = __mmu_calculate_virtual_addr(WRAM_SIZE, ECHO_RAM_START, ECHO_RAM_END, addr);
         return mmu->wram[virtual_addr];
     }
 
     case SECTION_OBJECT_RAM:
     {
-        virtual_addr = __mmu_calculate_virtual_addr(OAM_SIZE, OBJECT_RAM_END, addr);
+        virtual_addr = __mmu_calculate_virtual_addr(OAM_SIZE, OBJECT_RAM_START, OBJECT_RAM_END, addr);
         return mmu->oam[virtual_addr];
     }
 
     case SECTION_INPUT_OUTPUT:
     {
-        virtual_addr = __mmu_calculate_virtual_addr(IO_SIZE, IO_END, addr);
+        virtual_addr = __mmu_calculate_virtual_addr(IO_SIZE, IO_START, IO_END, addr);
         return mmu->io[virtual_addr];
     }
 
     case SECTION_HIGH_RAM:
     {
-        virtual_addr = __mmu_calculate_virtual_addr(HRAM_SIZE, HIGH_RAM_END, addr);
+        virtual_addr = __mmu_calculate_virtual_addr(HRAM_SIZE, HIGH_RAM_START, HIGH_RAM_END, addr);
         return mmu->hram[virtual_addr];
     }
 
