@@ -1,5 +1,5 @@
 CC=cc
-CFLAGS= -Wall -Wextra -std=c99 -O0 -ggdb -g3 -MMD -Wno-format-truncation
+CFLAGS= -Wall -Wextra -Wswitch-enum -Werror -pedantic -std=c99 -O3 -ggdb3 -MMD
 LIBS=-lm
 
 BUILD=build
