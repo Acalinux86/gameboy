@@ -58,6 +58,12 @@ struct SM83CPU
     /* Flag to Signal the CPU to Stop until Interrupt */
     int stopped;
 
+    /* Total Cycles */
+    uint64_t cycles;
+
+    /* Interrupt Master Enable */
+    uint8_t ime;
+
     /* Registers */
     struct SM83Registers registers;
 
@@ -73,6 +79,7 @@ enum SM83Error {
     SM83_ERR_MMU = -3,
     SM83_ERR_NULL_CPU = -4,
     SM83_ERR_DISASM = -5,
+    SM83_ERR_ILLEGAL_ACCESS = -6,
 };
 
 /* Initializer the sm83 cpu members */
@@ -80,6 +87,9 @@ enum SM83Error sm83_cpu_init(struct SM83CPU *cpu, FILE *fp, uint16_t pc);
 
 /* Shutdown the CPU and free the allocated members */
 enum SM83Error sm83_cpu_shutdown(struct SM83CPU *cpu);
+
+/* Decode the CB Prefixed Instructions */
+enum SM83Error sm83_decode_cb_prefixed(struct SM83CPU *cpu);
 
 /* Decode the Instructions */
 enum SM83Error sm83_decode(struct SM83CPU *cpu);

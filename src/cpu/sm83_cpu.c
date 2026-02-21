@@ -8,13 +8,14 @@ const char *sm83_error_string(enum SM83Error error)
 {
     switch (error)
     {
-    case SM83_OK: return "SM83_OK";
-    case SM83_ERR_MEMORY: return "SM83_ERR_MEMORY";
+    case SM83_OK:                 return "SM83_OK";
+    case SM83_ERR_MEMORY:         return "SM83_ERR_MEMORY";
     case SM83_ERR_INVALID_OPCODE: return "SM83_ERR_INVALID_OPCODE";
-    case SM83_ERR_MMU: return "SM83_ERR_MMU";
-    case SM83_ERR_NULL_CPU: return "SM83_ERR_NULL_CPU";
-    case SM83_ERR_DISASM: return "SM83_ERR_DISASM";
-    default: return "UNKNOWN SM83 ERROR";
+    case SM83_ERR_MMU:            return "SM83_ERR_MMU";
+    case SM83_ERR_NULL_CPU:       return "SM83_ERR_NULL_CPU";
+    case SM83_ERR_DISASM:         return "SM83_ERR_DISASM";
+    case SM83_ERR_ILLEGAL_ACCESS: return "SM83_ERR_ILLEGAL_ACCESS";
+    default:                      return "UNKNOWN SM83 ERROR";
     }
 }
 
@@ -140,6 +141,11 @@ enum
     C_BIT = 0x04, /* Carry Flag */
 };
 
+static inline uint8_t __sm83_get_flag_bit(struct SM83CPU *cpu, uint8_t bit_flag)
+{
+    return (cpu->registers.f >> bit_flag) & 1;
+}
+
 static inline void __sm83_set_z(struct SM83CPU *cpu, uint32_t value)
 {
     /* Set Z (Bit 7) if value == 0 */
@@ -153,28 +159,26 @@ enum
     FLAG_SUB = 0x02,
 };
 
-static inline void __sm83_set_n(struct SM83CPU *cpu, uint8_t operation)
-{
-    switch (operation)
-    {
-
-        /* case Addtion Clear the N bit in Flag Reg */
-    case FLAG_ADD: cpu->registers.f &= ~(1u << N_BIT); break;
-
-        /* case Subtraction set the N bit in Flag Reg */
-    case FLAG_SUB: cpu->registers.f |= (1u << N_BIT); break;
-
-    default:
-        fprintf(stderr, "ERROR: Unknown case %d\n", operation);
-        abort();
-    }
-}
-
 enum
 {
     HALF_CARRY_DEC,
     HALF_CARRY_INC,
 };
+
+static inline void __sm83_set_n(struct SM83CPU *cpu)
+{
+    cpu->registers.f |= (1u << N_BIT);
+}
+
+static inline void __sm83_clr_n(struct SM83CPU *cpu)
+{
+    cpu->registers.f &= ~(1u << N_BIT);
+}
+
+static inline void __sm83_clr_z(struct SM83CPU *cpu)
+{
+    cpu->registers.f &= ~(1u << Z_BIT);
+}
 
 static inline void __sm83_set_h(struct SM83CPU *cpu)
 {
@@ -182,11 +186,6 @@ static inline void __sm83_set_h(struct SM83CPU *cpu)
 }
 
 static inline void __sm83_clr_h(struct SM83CPU *cpu)
-{
-    cpu->registers.f &= ~(1u << H_BIT);
-}
-
-static inline void __sm83_clear_h(struct SM83CPU *cpu)
 {
     cpu->registers.f &= ~(1u << H_BIT);
 }
@@ -310,7 +309,7 @@ static inline void __sm83_inc_r8(struct SM83CPU *cpu, uint8_t *reg8)
 
     /* Update the flags */
     __sm83_set_z(cpu, *reg8);
-    __sm83_set_n(cpu, FLAG_ADD);
+    __sm83_clr_n(cpu);
     __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, orig);
 }
 
@@ -333,7 +332,7 @@ static inline enum SM83Error __sm83_inc_ind_r16(struct SM83CPU *cpu, uint8_t *hi
     uint8_t data = orig + 1;
     /* Update the flags */
     __sm83_set_z(cpu, data);
-    __sm83_set_n(cpu, FLAG_ADD);
+    __sm83_clr_n(cpu);
     __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, orig);
     return sm83_write8(cpu, data, joined);
 }
@@ -346,7 +345,7 @@ static inline enum SM83Error __sm83_dec_ind_r16(struct SM83CPU *cpu, uint8_t *hi
     uint8_t data = orig - 1;
     /* Update the flags */
     __sm83_set_z(cpu, data);
-    __sm83_set_n(cpu, FLAG_SUB);
+    __sm83_set_n(cpu);
     __sm83_set_h_with_operation(cpu, HALF_CARRY_DEC, orig);
     return sm83_write8(cpu, data, joined);
 }
@@ -359,7 +358,7 @@ static inline void __sm83_dec_r8(struct SM83CPU *cpu, uint8_t *reg8)
 
     /* Update the flags */
     __sm83_set_z(cpu, *reg8);
-    __sm83_set_n(cpu, FLAG_SUB);
+    __sm83_set_n(cpu);
     __sm83_set_h_with_operation(cpu, HALF_CARRY_DEC, orig);
 }
 
@@ -393,7 +392,7 @@ static inline void __sm83_load_r16_n16(struct SM83CPU *cpu, uint8_t *r16_high, u
     *r16_high = __sm83_fetch8(cpu); // high-order byte
 }
 
-/* Write to the memory location pointed by the joined register to the register specified */
+/* Write to the memory location pointed by the high and low address to the place specified */
 static inline enum SM83Error __sm83_load_r16_n8(struct SM83CPU *cpu, uint8_t high, uint8_t low, uint8_t data)
 {
     uint16_t addr = __sm83_join_eight_bits(high, low);
@@ -452,7 +451,7 @@ static inline void __sm83_load_operation_accumulator_r16(struct SM83CPU *cpu, in
     *low = joined & 0XFF;
 }
 
-/* Add Two Joined Registers ans Update the Flags */
+/* Add Two Joined Registers and Update the Flags */
 static inline void __sm83_add_r16_r16(struct SM83CPU *cpu, uint8_t *dst_high, uint8_t *dst_low, uint8_t *src_high, uint8_t *src_low)
 {
     uint16_t r16_dst = __sm83_join_eight_bits(*dst_high, *dst_low);
@@ -463,7 +462,7 @@ static inline void __sm83_add_r16_r16(struct SM83CPU *cpu, uint8_t *dst_high, ui
 
     /* Update Flags */
     __sm83_set_z(cpu, result);
-    __sm83_set_n(cpu, FLAG_ADD);
+    __sm83_clr_n(cpu);
     __sm83_set_h_for_add16(cpu, r16_dst, r16_src);
     __sm83_set_c_for_add16(cpu, result);
 
@@ -480,7 +479,7 @@ static inline void __sm83_add_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *
 
     /* Update Flags */
     __sm83_set_z(cpu, (uint16_t)result);
-    __sm83_set_n(cpu, FLAG_ADD);
+    __sm83_clr_n(cpu);
     __sm83_set_h_for_add8(cpu, *dst, *src);
     __sm83_set_c_for_add8(cpu, result);
 
@@ -499,7 +498,7 @@ static inline void __sm83_adc_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *
 
     /* Update Flags */
     __sm83_set_z(cpu, (uint16_t)result);
-    __sm83_set_n(cpu, FLAG_ADD);
+    __sm83_clr_n(cpu);
     __sm83_set_h_for_adc8(cpu, *dst, *src, carry);
     __sm83_set_c_for_add8(cpu, result);
 
@@ -515,7 +514,7 @@ static inline void __sm83_sub_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *
 
     /* Update Flags */
     __sm83_set_z(cpu, (uint16_t)result);
-    __sm83_set_n(cpu, FLAG_SUB);
+    __sm83_set_n(cpu);
     __sm83_set_h_for_sub8(cpu, *dst, *src);
     __sm83_set_c_for_sub8(cpu, *dst, *src);
 
@@ -534,7 +533,7 @@ static inline void __sm83_sbc_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *
 
     /* Update Flags */
     __sm83_set_z(cpu, (uint16_t)result);
-    __sm83_set_n(cpu, FLAG_SUB);
+    __sm83_set_n(cpu);
     __sm83_set_h_for_sbc8(cpu, *dst, *src, carry);
     __sm83_set_c_for_sbc8(cpu, *dst, *src, carry);
 
@@ -550,7 +549,7 @@ static inline void __sm83_and_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *
 
     /* Update Flags */
     __sm83_set_z(cpu, (uint8_t)result);
-    __sm83_set_n(cpu, FLAG_ADD); /* Clears N */
+    __sm83_clr_n(cpu); /* Clears N */
     __sm83_set_h(cpu); /* Set H */
     __sm83_clr_c(cpu); /* Clear C */
 
@@ -566,7 +565,7 @@ static inline void __sm83_xor_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *
 
     /* Update Flags */
     __sm83_set_z(cpu, (uint8_t)result);
-    __sm83_set_n(cpu, FLAG_ADD); /* Clears N */
+    __sm83_clr_n(cpu); /* Clears N */
     __sm83_clr_h(cpu); /* Clear H */
     __sm83_clr_c(cpu); /* Clear C */
 
@@ -582,7 +581,7 @@ static inline void __sm83_cp_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *s
 
     /* Update Flags */
     __sm83_set_z(cpu, (uint16_t)result);
-    __sm83_set_n(cpu, FLAG_SUB);
+    __sm83_set_n(cpu);
     __sm83_set_h_for_sub8(cpu, *dst, *src);
     __sm83_set_c_for_sub8(cpu, *dst, *src);
 
@@ -596,7 +595,7 @@ static inline void __sm83_or_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *s
 
     /* Update Flags */
     __sm83_set_z(cpu, (uint8_t)result);
-    __sm83_set_n(cpu, FLAG_ADD); /* Clears N */
+    __sm83_clr_n(cpu); /* Clears N */
     __sm83_clr_h(cpu); /* Clear H */
     __sm83_clr_c(cpu); /* Clear C */
 
@@ -604,32 +603,329 @@ static inline void __sm83_or_r8_r8(struct SM83CPU *cpu, uint8_t *dst, uint8_t *s
     *dst = result;
 }
 
-/* Callback Function to Check a negative Jump Condition */
-static inline uint8_t __sm83_jump_condition_not(void)
+enum Condition
 {
-    return 0;
+    COND_NZ,
+    COND_Z,
+    COND_NC,
+    COND_C,
+
+    COND_COUNT,
+};
+
+typedef uint8_t (*ConditionCheck)(struct SM83CPU *);
+
+static inline uint8_t check_nz(struct SM83CPU *cpu)
+{
+    return !(cpu->registers.f & (1u << Z_BIT));
 }
 
-/* Callback Function to Check a positive Jump Condition */
-static inline uint8_t __sm83_jump_condition_yes(void)
+static inline uint8_t check_z(struct SM83CPU *cpu)
 {
-    return 1;
+    return (cpu->registers.f & (1u << Z_BIT)) != 0;
 }
+
+static inline uint8_t check_nc(struct SM83CPU *cpu)
+{
+    return !(cpu->registers.f & (1u << C_BIT));
+}
+
+static inline uint8_t check_c(struct SM83CPU *cpu)
+{
+    return (cpu->registers.f & (1u << C_BIT)) != 0;
+}
+
+static ConditionCheck checks[COND_COUNT] =
+{
+    [COND_NZ] = check_nz,
+    [COND_Z]  = check_z,
+    [COND_NC] = check_nc,
+    [COND_C]  = check_c,
+};
 
 /* Relative Jump to e8 + PC if condition is met */
-static inline void __sm83_relative_jump_cc_e8(struct SM83CPU *cpu, uint8_t bit_flag, uint8_t (*jump_condition)(void))
+static inline void __sm83_relative_jump_cc(struct SM83CPU *cpu, uint8_t bit_flag, enum Condition condition)
 {
     /* Isolate bit_flag Bit */
-    uint8_t condition = (cpu->registers.f >> bit_flag) & 1;
+    uint8_t flag = (cpu->registers.f >> bit_flag) & 1;
     int8_t offset = (int8_t)__sm83_fetch8(cpu);
-    if (jump_condition() == condition) cpu->registers.pc += offset;
+    if (checks[condition](cpu) == flag)
+    {
+        cpu->cycles += 3;
+        cpu->registers.pc += (int16_t)offset;
+    }
+    else
+    {
+        cpu->cycles += 2;
+    }
 }
 
 /* Relative Jump to e8 + PC */
-static inline void __sm83_relative_jump_e8(struct SM83CPU *cpu)
+static inline void __sm83_relative_jump(struct SM83CPU *cpu)
 {
     int8_t offset = (int8_t)__sm83_fetch8(cpu);
-    cpu->registers.pc += offset;
+    cpu->registers.pc += (int16_t)offset;
+    cpu->cycles += 3;
+}
+
+/* Absolute Jump to the address specified if condition is met */
+static inline void __sm83_jump_cc(struct SM83CPU *cpu, uint8_t bit_flag, enum Condition condition)
+{
+    /* Isolate bit_flag Bit */
+    uint8_t flag = (cpu->registers.f >> bit_flag) & 1;
+    uint16_t addr = __sm83_fetch16(cpu);
+    if (checks[condition](cpu) == flag)
+    {
+        cpu->registers.pc = addr;
+        cpu->cycles += 4;
+    }
+    else
+    {
+        cpu->cycles += 2;
+    }
+}
+
+/* Absolute Jump to address specified */
+static inline void __sm83_jump(struct SM83CPU *cpu)
+{
+    uint16_t addr = __sm83_fetch16(cpu);
+    cpu->registers.pc = addr;
+    cpu->cycles += 4;
+}
+
+/* Return from Subroutine if Condition is met */
+static inline void __sm83_ret_cc(struct SM83CPU *cpu, uint8_t bit_flag, enum Condition condition)
+{
+    uint8_t flag = (cpu->registers.f >> bit_flag) & 1;
+    if (checks[condition](cpu) == flag)
+    {
+        // If Condition is met pop the PC from Stack
+        uint8_t low =  sm83_read(cpu, cpu->registers.sp++);
+        uint8_t high = sm83_read(cpu, cpu->registers.sp++);
+
+        cpu->registers.pc = (high << 8) | low;
+
+        /* If Condition is met Add % cycles */
+        cpu->cycles += 5;
+    }
+    else
+    {
+        /* Add 2 cycles */
+        cpu->cycles += 2;
+    }
+}
+
+/* Return from Subroutine */
+static inline void __sm83_ret(struct SM83CPU *cpu)
+{
+    uint8_t low =  sm83_read(cpu, cpu->registers.sp++);
+    uint8_t high = sm83_read(cpu, cpu->registers.sp++);
+    cpu->registers.pc = (high << 8) | low;
+    cpu->cycles += 4;
+}
+
+// Push the PC to the stack, Call Subroutine
+static inline void __sm83_call_cc(struct SM83CPU *cpu, uint8_t bit_flag, enum Condition condition)
+{
+    /* Isolate the Condition's flag */
+    uint8_t flag = (cpu->registers.f >> bit_flag) & 1;
+
+    /* Check Condtion */
+    if (checks[condition](cpu) == flag)
+    {
+        /* Save PC before entering subroutine */
+        sm83_write8(cpu, cpu->registers.pc >> 8, --cpu->registers.sp); /* Push High First */
+        sm83_write8(cpu, cpu->registers.pc & 0xFF, --cpu->registers.sp); /* Push Low Second */
+
+        /* Fetch the subroutine address */
+        cpu->registers.pc = __sm83_fetch16(cpu);
+        cpu->cycles += 6;
+    }
+    else
+    {
+        cpu->cycles += 3;
+    }
+}
+
+/* Call Subroutine */
+static inline void __sm83_call(struct SM83CPU *cpu)
+{
+    sm83_write8(cpu, cpu->registers.pc >> 8, --cpu->registers.sp);
+    sm83_write8(cpu, cpu->registers.pc & 0xFF, --cpu->registers.sp);
+    cpu->registers.pc = __sm83_fetch16(cpu);
+    cpu->cycles += 6;
+}
+
+/* Restart with the specified vector same as Call vec */
+static inline void __sm83_rst_vec(struct SM83CPU *cpu, uint16_t vec)
+{
+    sm83_write8(cpu, cpu->registers.pc >> 8, --cpu->registers.sp);
+    sm83_write8(cpu, cpu->registers.pc & 0xFF, --cpu->registers.sp);
+    cpu->registers.pc = vec;
+    cpu->cycles += 4;
+}
+
+/* Abort on illegal access, something wrong with the fetch-decode-ececute cycle */
+static inline enum SM83Error __sm83_illegal_access(uint8_t opcode)
+{
+    fprintf(stderr, "ILLEGAL: ILLEGAL 0x%02x access\n", opcode);
+    return SM83_ERR_ILLEGAL_ACCESS;
+}
+
+/* Rotate left circular a byte left */
+static inline void __sm83_rlc(struct SM83CPU *cpu, uint8_t *reg8)
+{
+    uint8_t result = (*reg8 << 1) | (*reg8 >> 7);
+
+    __sm83_set_z(cpu, result);
+    __sm83_clr_n(cpu);
+    __sm83_clr_h(cpu);
+    if (*reg8 & 0x80)
+    {
+        __sm83_set_c(cpu);
+    }
+    else
+    {
+        __sm83_clr_c(cpu);
+    }
+    cpu->cycles += 2;
+    *reg8 = result;
+}
+
+/* Rotate right circular a byte left */
+static inline void __sm83_rrc(struct SM83CPU *cpu, uint8_t *reg8)
+{
+    uint8_t result = (*reg8 >> 1) | (*reg8 << 7);
+
+    __sm83_set_z(cpu, result);
+    __sm83_clr_n(cpu);
+    __sm83_clr_h(cpu);
+    if (*reg8 & 0x01)
+    {
+        __sm83_set_c(cpu);
+    }
+    else
+    {
+        __sm83_clr_c(cpu);
+    }
+    cpu->cycles += 2;
+    *reg8 = result;
+}
+
+/* Rotate left with carry bit */
+static inline void __sm83_rl(struct SM83CPU *cpu, uint8_t *reg8)
+{
+    /* Extract carry bit */
+    uint8_t carry = __sm83_get_flag_bit(cpu, C_BIT);
+
+    uint8_t result = (*reg8 << 1) | carry;
+    __sm83_set_z(cpu, result);
+    __sm83_clr_n(cpu);
+    __sm83_clr_h(cpu);
+    if (*reg8 & 0x80)
+    {
+        __sm83_set_c(cpu);
+    }
+    else
+    {
+        __sm83_clr_c(cpu);
+    }
+    cpu->cycles += 2;
+    *reg8 = result;
+}
+
+/* Rotate right with carry bit */
+static inline void __sm83_rr(struct SM83CPU *cpu, uint8_t *reg8)
+{
+    /* Extract carry bit */
+    uint8_t carry = __sm83_get_flag_bit(cpu, C_BIT);
+
+    uint8_t result = (*reg8 >> 1) | (carry << 7);
+    __sm83_set_z(cpu, result);
+    __sm83_clr_n(cpu);
+    __sm83_clr_h(cpu);
+    if (*reg8 & 0x01)
+    {
+        __sm83_set_c(cpu);
+    }
+    else
+    {
+        __sm83_clr_c(cpu);
+    }
+    cpu->cycles += 2;
+    *reg8 = result;
+}
+
+/* Shift left arithmetically  */
+static inline void __sm83_sla(struct SM83CPU *cpu, uint8_t *reg8)
+{
+    uint8_t result = (*reg8 << 1);
+
+    __sm83_set_z(cpu, result);
+    __sm83_clr_n(cpu);
+    __sm83_clr_h(cpu);
+    if (*reg8 & 0x80)
+    {
+        __sm83_set_c(cpu);
+    }
+    else
+    {
+        __sm83_clr_c(cpu);
+    }
+    cpu->cycles += 2;
+    *reg8 = result;
+}
+
+/* Shift Right logical */
+static inline void __sm83_srl(struct SM83CPU *cpu, uint8_t *reg8)
+{
+    uint8_t result = (*reg8 >> 1);
+
+    __sm83_set_z(cpu, result);
+    __sm83_clr_n(cpu);
+    __sm83_clr_h(cpu);
+    if (*reg8 & 0x01)
+    {
+        __sm83_set_c(cpu);
+    }
+    else
+    {
+        __sm83_clr_c(cpu);
+    }
+    cpu->cycles += 2;
+    *reg8 = result;
+}
+
+/* Shift Right Arithmetically */
+static inline void __sm83_sra(struct SM83CPU *cpu, uint8_t *reg8)
+{
+    uint8_t result = (*reg8 >> 1) | (*reg8 & 0x80);
+
+    __sm83_set_z(cpu, result);
+    __sm83_clr_n(cpu);
+    __sm83_clr_h(cpu);
+    if (*reg8 & 0x01)
+    {
+        __sm83_set_c(cpu);
+    }
+    else
+    {
+        __sm83_clr_c(cpu);
+    }
+    cpu->cycles += 2;
+    *reg8 = result;
+}
+
+/* Swap the four lower and upper bits of *reg8 */
+static inline void __sm83_swap(struct SM83CPU *cpu, uint8_t *reg8)
+{
+    uint8_t result = (*reg8 << 4) | (*reg8 >> 4);
+    __sm83_set_z(cpu, result);
+    __sm83_clr_n(cpu);
+    __sm83_clr_h(cpu);
+    __sm83_clr_c(cpu);
+    *reg8 = result;
+    cpu->cycles += 2;
 }
 
 /* Decode the Instructions */
@@ -739,7 +1035,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
 
         /* Clear Z N H */
         __sm83_set_z(cpu, 0XFF);
-        __sm83_set_n(cpu, FLAG_ADD);
+        __sm83_clr_n(cpu);
         __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, 0);
 
         /* Set C bit according to result */
@@ -861,7 +1157,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
 
         /* Clear Z N H */
         __sm83_set_z(cpu, 0XFF);
-        __sm83_set_n(cpu, FLAG_ADD);
+        __sm83_clr_n(cpu);
         __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, 0);
 
         /* Set C bit according to result */
@@ -968,7 +1264,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
 
         /* Clear Z N H */
         __sm83_set_z(cpu, 0XFF);
-        __sm83_set_n(cpu, FLAG_ADD);
+        __sm83_clr_n(cpu);
         __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, 0);
 
         /* Set C bit according to old bit 7 */
@@ -984,7 +1280,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
           JR E8
           Increment the PC with the Signed Offset Obtained from fetch8
         */
-        __sm83_relative_jump_e8(cpu);
+        __sm83_relative_jump(cpu);
         /* Emit Disassembly */
         EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jr 0x%x\n", cpu->registers.pc);
     } break;
@@ -1066,7 +1362,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
 
         /* Clear Z N H */
         __sm83_set_z(cpu, 0XFF);
-        __sm83_set_n(cpu, FLAG_ADD);
+        __sm83_clr_n(cpu);
         __sm83_set_h_with_operation(cpu, HALF_CARRY_INC, 0);
 
         /* Set C bit according to old carry */
@@ -1082,7 +1378,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
           JR NZ, E8
           Jump if Z flag is 0 else dont
         */
-        __sm83_relative_jump_cc_e8(cpu, Z_BIT, __sm83_jump_condition_not);
+        __sm83_relative_jump_cc(cpu, Z_BIT, COND_NZ);
         /* Emit Disassembly */
         EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jr nz, 0x%04x\n", cpu->registers.pc);
     } break;
@@ -1190,7 +1486,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
     case OP_JR_Z_E8:
     {
         /* JR Z, E8. Jump if Z == 1 else dont */
-        __sm83_relative_jump_cc_e8(cpu, Z_BIT, __sm83_jump_condition_yes);
+        __sm83_relative_jump_cc(cpu, Z_BIT, COND_Z);
         /* Emit Disassembly */
         EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jr z, 0x%04x\n", cpu->registers.pc);
     } break;
@@ -1261,7 +1557,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
           Jump if C flag is 0 else dont
         */
         /* Isolate C Bit */
-        __sm83_relative_jump_cc_e8(cpu, C_BIT, __sm83_jump_condition_not);
+        __sm83_relative_jump_cc(cpu, C_BIT, COND_NC);
         /* Emit Disassembly */
         EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jr nc, 0x%04x\n", cpu->registers.pc);
     } break;
@@ -1279,7 +1575,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* LD HLD, A, Write memory[HL] = A, then decrement HL */
         __sm83_load_operation_r16_accumulator(cpu, FLAG_SUB, &cpu->registers.h, &cpu->registers.l);
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hld], a\n", cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [hld], a\n");
     } break;
 
     case OP_INC_SP:
@@ -1287,7 +1583,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         /* INC SP. Increment Stack Pointer */
         cpu->registers.sp++;
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc sp\n", cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc sp\n");
     } break;
 
     case OP_IND_INC_HL:
@@ -1296,7 +1592,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         enum SM83Error ret = __sm83_inc_ind_r16(cpu, &cpu->registers.h, &cpu->registers.l);
         if (ret != SM83_OK) return ret;
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc [hl]\n", cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "inc [hl]\n");
     } break;
 
     case OP_IND_DEC_HL:
@@ -1305,7 +1601,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         enum SM83Error ret = __sm83_dec_ind_r16(cpu, &cpu->registers.h, &cpu->registers.l);
         if (ret != SM83_OK) return ret;
         /* Emit Disassembly */
-        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec [hl]\n", cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "dec [hl]\n");
     } break;
 
     case OP_LD_HL_N8:
@@ -1331,7 +1627,7 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
     case OP_JR_C_E8:
     {
         /* JR C, E8. Jump if C flag bit is 1*/
-        __sm83_relative_jump_cc_e8(cpu, C_BIT, __sm83_jump_condition_yes);
+        __sm83_relative_jump_cc(cpu, C_BIT, COND_C);
         /* Emit Disassembly */
         EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jr c, 0x%02x\n", cpu->registers.pc);
     } break;
@@ -2346,10 +2642,925 @@ enum SM83Error sm83_decode(struct SM83CPU *cpu)
         EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cp a, a\n");
     } break;
 
+    case OP_RET_NZ:
+    {
+        /* RET NZ. Return from Subroutine if Z == 0 */
+        __sm83_ret_cc(cpu, Z_BIT, COND_NZ);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ret nz\n");
+    } break;
+
+    case OP_POP_BC:
+    {
+        /* POP BC. Pop the values of regs B and C from the stack */
+        cpu->registers.c = sm83_read(cpu, cpu->registers.sp++);
+        cpu->registers.b = sm83_read(cpu, cpu->registers.sp++);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "pop bc\n");
+    } break;
+
+    case OP_JP_NZ_A16:
+    {
+        /* JP NZ A16, Jump if not Z */
+        __sm83_jump_cc(cpu, Z_BIT, COND_NZ);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jp nz\n");
+    } break;
+
+    case OP_JP_A16:
+    {
+        /* JP A16, Jump to the address in the next two bytes */
+        __sm83_jump(cpu);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jp 0x%04x\n", cpu->registers.pc);
+    } break;
+
+    case OP_CALL_NZ_A16:
+    {
+        /* CALL NZ A16, Call Subroutine at a16 if not z*/
+        __sm83_call_cc(cpu, Z_BIT, COND_NZ);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "call nz\n");
+    } break;
+
+    case OP_PUSH_BC:
+    {
+        /* PUSH BC, push B and C to Stack */
+        sm83_write8(cpu, cpu->registers.b, --cpu->registers.sp);
+        sm83_write8(cpu, cpu->registers.c, --cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "push bc\n");
+    } break;
+
+    case OP_ADD_A_N8:
+    {
+        /* ADD A, N8 add a to the next byte and save back to a*/
+        uint8_t n8 = __sm83_fetch8(cpu);
+        __sm83_add_r8_r8(cpu, &cpu->registers.a, &n8);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add a, 0x%02x\n", n8);
+    } break;
+
+    case OP_RST_00:
+    {
+        /* RST 00, Call the subroutine at address 0x0000*/
+        __sm83_rst_vec(cpu, 0x0000);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rst 0x%04x\n", 0x0000);
+    } break;
+
+    case OP_RET_Z:
+    {
+        /* RET Z. Return from subroutine if Z bit */
+        __sm83_ret_cc(cpu, Z_BIT, COND_Z);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ret z\n");
+    } break;
+
+    case OP_RET:
+    {
+        /* Ret from Subroutine */
+        __sm83_ret(cpu);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ret 0x%04x\n", cpu->registers.pc);
+    } break;
+
+    case OP_JP_Z_A16:
+    {
+        /* JP Z A16, Jump to fetched a16 if Z */
+        __sm83_jump_cc(cpu, Z_BIT, COND_Z);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jp z\n");
+    } break;
+
+    case OP_PREFIX:
+    {
+        sm83_decode_cb_prefixed(cpu);
+    } break;
+
+    case OP_CALL_Z_A16:
+    {
+        /* Call Z a16 Call Subroutine a16 if Z */
+        __sm83_call_cc(cpu, Z_BIT, COND_Z);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "call z\n");
+    } break;
+
+    case OP_CALL_A16:
+    {
+        /* Call a16 Call Subroutine a16 */
+        __sm83_call(cpu);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "call 0x%04x\n", cpu->registers.pc);
+    } break;
+
+    case OP_ADC_A_N8:
+    {
+        /* ADC A N8, Add a and fetched n8 with carry */
+        uint8_t n8 = __sm83_fetch8(cpu);
+        __sm83_adc_r8_r8(cpu, &cpu->registers.a, &n8);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "adc a, 0x%02x\n", n8);
+    } break;
+
+    case OP_RST_08:
+    {
+        /* RST 08 Call subroutine at address 08 */
+        __sm83_rst_vec(cpu, 0x0008);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rst 0x%04x\n", 0x0008);
+    } break;
+
+    case OP_RET_NC:
+    {
+        /* RET NC. Return from Subroutine if not C */
+        __sm83_ret_cc(cpu, C_BIT, COND_NC);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ret nc\n");
+    } break;
+
+    case OP_POP_DE:
+    {
+        /* POP DE, read d and e from the stack */
+        cpu->registers.e = sm83_read(cpu, cpu->registers.sp++); /* Pop low first */
+        cpu->registers.d = sm83_read(cpu, cpu->registers.sp++); /* Pop high second */
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "pop de\n");
+    } break;
+
+    case OP_JP_NC_A16:
+    {
+        /* Jump if not c flag */
+        __sm83_jump_cc(cpu, C_BIT, COND_NC);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jp nc\n");
+    } break;
+
+    case OP_ILLEGAL_D3: return __sm83_illegal_access(0xD3);
+
+    case OP_CALL_NC_A16:
+    {
+        /* CALL Subroutine if not c flag */
+        __sm83_call_cc(cpu, C_BIT, COND_NC);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "call nc\n");
+    } break;
+
+    case OP_PUSH_DE:
+    {
+        /* PUSH DE */
+        sm83_write8(cpu, cpu->registers.d, --cpu->registers.sp); // Push high
+        sm83_write8(cpu, cpu->registers.e, --cpu->registers.sp); // Push low
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "push de\n");
+    } break;
+
+    case OP_SUB_A_N8:
+    {
+        /* Subtract a from fetched n8 then save back to a */
+        uint8_t n8 = __sm83_fetch8(cpu);
+        __sm83_sub_r8_r8(cpu, &cpu->registers.a, &n8);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sub a, 0x%02x\n", n8);
+    } break;
+
+    case OP_RST_10:
+    {
+        /* RST 10 */
+        __sm83_rst_vec(cpu, 0x0010);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rst 0x%04x\n", 0x0010);
+    } break;
+
+    case OP_RET_C:
+    {
+        /* Return if C */
+        __sm83_ret_cc(cpu, C_BIT, COND_C);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ret c\n");
+    } break;
+
+    case OP_RETI:
+    {
+        /* Return from subroutine and set interrupt flag */
+        cpu->ime = 1;
+        __sm83_ret(cpu);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "reti\n");
+    } break;
+
+    case OP_JP_C_A16:
+    {
+        /* Jump if c flag */
+        __sm83_jump_cc(cpu, C_BIT, COND_C);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jp c\n");
+    } break;
+
+    case OP_ILEGAL_DB: return __sm83_illegal_access(0xDB);
+
+    case OP_CALL_C_A16: {
+        /* Call if c flag */
+        __sm83_call_cc(cpu, C_BIT, COND_C);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "call c\n");
+    } break;
+    
+    case OP_ILEGALL_DD: return __sm83_illegal_access(0xDD);
+
+    case OP_SBC_A_N8:
+    {
+        /* Subtract with carry a from n8 */
+        uint8_t n8 = __sm83_fetch8(cpu);
+        __sm83_sbc_r8_r8(cpu, &cpu->registers.a, &n8);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sbc a, 0x%02x\n", n8);
+    } break;
+
+    case OP_RST_18:
+    {
+        /* RST 18 */
+        __sm83_rst_vec(cpu, 0x0018);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rst 0x%04x\n", 0x0018);
+    } break;
+
+    case OP_LDH_A8_A:
+    {
+        /*LDH [A8] A Load FF00 + A8 into a */
+        uint8_t a8 = __sm83_fetch8(cpu);
+        uint8_t high = 0xFF;
+        uint16_t addr = __sm83_join_eight_bits(high, a8);
+        sm83_write8(cpu, cpu->registers.a, addr);
+       EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ldh [0x%04x], a\n", addr);
+    } break;
+
+    case OP_POP_HL:
+    {
+        /* POP HL, pop h and l from stack */
+        cpu->registers.l = sm83_read(cpu, cpu->registers.sp++); // pop low
+        cpu->registers.h = sm83_read(cpu, cpu->registers.sp++); // pop high
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "pop hl\n");
+    } break;
+
+    case OP_LDH_C_A: {
+        /*LDH [C] A Load FF00 + C into a */
+        uint8_t C = cpu->registers.c;
+        uint8_t high = 0xFF;
+        uint16_t addr = __sm83_join_eight_bits(high, C);
+        sm83_write8(cpu, cpu->registers.a, addr);
+       EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ldh [0x%04x], a\n", addr);
+    } break;
+
+    case OP_ILLEGAL_E3: return __sm83_illegal_access(0xE3);
+    case OP_ILLEGAL_E4: return __sm83_illegal_access(0xE4);
+
+    case OP_PUSH_HL:
+    {
+        /* PUSH HL onto the Stack */
+        sm83_write8(cpu, cpu->registers.h, --cpu->registers.sp); // push high
+        sm83_write8(cpu, cpu->registers.l, --cpu->registers.sp); // push low
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "push hl\n");
+    } break;
+
+    case OP_AND_A_N8:
+    {
+        /* and a and fetched n8 */
+        uint8_t n8 = __sm83_fetch8(cpu);
+        __sm83_and_r8_r8(cpu, &cpu->registers.a, &n8);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "and a, 0x%02x\n", n8);
+    } break;
+
+    case OP_RST_20:
+    {
+        /* RST 20 */
+        __sm83_rst_vec(cpu, 0x0020);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rst 0x%04x\n", 0x0020);
+    } break;
+
+    case OP_ADD_SP_E8:
+    {
+        int8_t e8 = (int8_t)__sm83_fetch8(cpu);
+        uint32_t sp = (uint32_t)cpu->registers.sp;
+        uint32_t result = sp + (int16_t) e8;
+        /* Update Flags */
+        __sm83_clr_z(cpu); /* Clear Z*/
+        __sm83_clr_n(cpu); /* Clear N*/
+        __sm83_set_h_for_add8(cpu, sp & 0xFF, e8);
+        __sm83_set_c_for_add8(cpu, (uint16_t)((sp & 0xFF) + e8));
+
+        cpu->registers.sp = result;
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "add sp, 0x%02x\n", e8);
+    } break;
+
+    case OP_JP_HL:
+    {
+        /* Jump to HL, PC = Joined HL */
+        cpu->registers.pc = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "jp hl\n");
+        cpu->cycles += 1;
+    } break;
+
+    case OP_LD_A16_A:
+    {
+        /* LD A16 A, Write a into byte in a16 */
+        uint8_t high = __sm83_fetch8(cpu);
+        uint8_t low =  __sm83_fetch8(cpu);
+        __sm83_load_r16_n8(cpu, high, low, cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld [0x%04x], a\n", ((high << 8) | low));
+    } break;
+
+    case OP_ILEGAL_EB: return __sm83_illegal_access(0xEB);
+    case OP_ILLEGAL_EC: return __sm83_illegal_access(0xEC);
+    case OP_ILEGALL_ED: return __sm83_illegal_access(0xED);
+
+    case OP_XOR_A_N8:
+    {
+        /* xor a with n8 and save back to a */
+        uint8_t n8 = __sm83_fetch8(cpu);
+        __sm83_xor_r8_r8(cpu, &cpu->registers.a, &n8);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, [0x%02x]\n", n8);
+    } break;
+
+    case OP_RST_28:
+    {
+        /* RST 28 */
+        __sm83_rst_vec(cpu, 0x0028);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rst 0x%04x\n", 0x0028);
+    } break;
+
+    case OP_LDH_A_A8:
+    {
+        /* LDH A, [A8] Write a into FF00 + A8 */
+        uint8_t a8 = __sm83_fetch8(cpu);
+        uint8_t high = 0xFF;
+        uint16_t addr = __sm83_join_eight_bits(high, a8);
+        cpu->registers.a = sm83_read(cpu, addr);
+       EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ldh a, [0x%04x]\n", addr);
+    } break;
+
+    case OP_POP_AF:
+    {
+        /* POP AF */
+        cpu->registers.a = sm83_read(cpu, cpu->registers.sp++); // pop low
+        cpu->registers.f = sm83_read(cpu, cpu->registers.sp++); // pop high
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "pop af\n");        
+    } break;
+
+    case OP_LDH_A_C:
+    {
+        /* LDH A, [C] Write A into FF00 + C */
+        uint8_t C = cpu->registers.c;
+        uint8_t high = 0xFF;
+        uint16_t addr = __sm83_join_eight_bits(high, C);
+        cpu->registers.a = sm83_read(cpu, addr);
+       EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ldh a, [0x%04x]\n", C);
+    } break;
+
+    case OP_DI:
+    {
+        /* Disasble Interrupt, clear ime flag */
+        cpu->ime = 0;
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "di\n");
+    } break;
+
+    case OP_ILLEGAL_F4: return __sm83_illegal_access(0xF4);
+
+    case OP_PUSH_AF:
+    {
+        /* Push AF */
+        sm83_write8(cpu, cpu->registers.a, --cpu->registers.sp);
+        sm83_write8(cpu, cpu->registers.f, --cpu->registers.sp);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "push af\n");
+    } break;
+
+    case OP_OR_A_N8:
+    {
+        /* or a with n8, save back to a*/
+        uint8_t n8 = __sm83_fetch8(cpu);
+        __sm83_or_r8_r8(cpu, &cpu->registers.a, &n8);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "or a, 0x%02x\n", n8);
+    } break;
+
+    case OP_RST_30:
+    {
+        /* RST 30 */
+        __sm83_rst_vec(cpu, 0x0030);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rst 0x%04x\n", 0x0030);
+    } break;
+
+    case OP_LD_HL_SPE8:
+    {
+        /* LDH HL, SP + E8 */
+        int8_t e8 = __sm83_fetch8(cpu);
+        uint16_t sp = cpu->registers.sp;
+        uint16_t result = sp + (int16_t)e8;
+        cpu->registers.h = result >> 8;
+        cpu->registers.l = result & 0xFF;
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld hl, sp + 0x%02x", e8);
+    } break;
+
+    case OP_LD_SP_HL:
+    {
+        /* LD SP, HL Copy HL into SP */
+        uint16_t hl = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        cpu->registers.sp = hl;
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld sp, hl");
+    } break;
+
+    case OP_LD_A_A16:
+    {
+        /* LD A a16, copy byte in a16 into a*/
+        uint8_t low  = __sm83_fetch8(cpu);
+        uint8_t high = __sm83_fetch8(cpu);
+        __sm83_load_r8_r16(cpu, &high, &low, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ld a, [0x%04x]", ((high << 8) | low));
+    } break;
+
+    case OP_EI:
+    {
+        /* Enable Interrupt, set ime flag */
+        cpu->ime = 1;
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "ei\n");
+    } break;
+
+    case OP_ILLEGAL_FC: return __sm83_illegal_access(0xFC);
+    case OP_ILEGALL_FD: return __sm83_illegal_access(0xFD);
+
+    case OP_CP_A_N8:
+    {
+        /* CP A N8 */
+        uint8_t n8 = __sm83_fetch8(cpu);
+        __sm83_cp_r8_r8(cpu, &cpu->registers.a, &n8);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "cp a, 0x%02x\n", n8);
+    } break;
+
+    case OP_RST_38:
+    {
+        /* RST 38 */
+        __sm83_rst_vec(cpu, 0x0038);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rst 0x%04x\n", 0x0038);
+    } break;
 
     default:
         fprintf(stderr, "ERROR: `0x%x`, `%s` Intruction Not Handled Yet\n", instr, sm83_opcode_as_cstr(instr));
         return SM83_ERR_INVALID_OPCODE;
     }
+    return SM83_OK;
+}
+
+enum SM83Error sm83_decode_cb_prefixed(struct SM83CPU *cpu)
+{
+    /* Read the CB Prefixed Instruction From the ROM */
+    uint8_t cb_prefixed_instr = __sm83_fetch8(cpu);
+
+    /* Emit Status */
+    int emit = cpu->emit_disasm;
+
+    switch (cb_prefixed_instr)
+    {
+    case OP_RLC_B:
+    {
+        /* RLC B */
+        __sm83_rlc(cpu, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rlc b\n");
+    } break;
+
+    case OP_RLC_C:
+    {
+        /* RLC C */
+        __sm83_rlc(cpu, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rlc c\n");
+    } break;
+
+    case OP_RLC_D:
+    {
+        /* RLC D */
+        __sm83_rlc(cpu, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rlc d\n");
+    } break;
+
+    case OP_RLC_E:
+    {
+        /* RLC E */
+        __sm83_rlc(cpu, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rlc e\n");
+    } break;
+
+    case OP_RLC_H:
+    {
+        /* RLC H */
+        __sm83_rlc(cpu, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rlc h\n");
+    } break;
+
+    case OP_RLC_L:
+    {
+        /* RLC L */
+        __sm83_rlc(cpu, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rlc l\n");
+    } break;
+
+    case OP_RLC_HL:
+    {
+        /* RLC HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_rlc(cpu, &data);
+        sm83_write8(cpu, data, addr);
+        cpu->cycles +=2;
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rlc [hl]\n");
+    } break;
+
+    case OP_RLC_A:
+    {
+        /* RLC A */
+        __sm83_rlc(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rlc a\n");
+    } break;
+
+    case OP_RRC_B:
+    {
+        /* RRC B */
+        __sm83_rrc(cpu, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rrc b\n");
+    } break;
+
+    case OP_RRC_C:
+    {
+        /* RRC C */
+        __sm83_rrc(cpu, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rrc c\n");
+    } break;
+
+    case OP_RRC_D:
+    {
+        /* RRC D */
+        __sm83_rrc(cpu, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rrc d\n");
+    } break;
+
+    case OP_RRC_E:
+    {
+        /* RRC E */
+        __sm83_rrc(cpu, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rrc e\n");
+    } break;
+
+    case OP_RRC_H:
+    {
+        /* RRC H */
+        __sm83_rrc(cpu, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rrc h\n");
+    } break;
+
+    case OP_RRC_L:
+    {
+        /* RRC L */
+        __sm83_rrc(cpu, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rrc l\n");
+    } break;
+
+    case OP_RRC_HL:
+    {
+        /* RRC HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_rrc(cpu, &data);
+        sm83_write8(cpu, data, addr);
+        cpu->cycles += 2;
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rrc [hl]\n");
+    } break;
+
+    case OP_RRC_A: {
+        /* RRC A */
+        __sm83_rrc(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rrc a\n");
+    } break;
+
+    case OP_RL_B:
+    {
+        /* RL B */
+        __sm83_rl(cpu, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rl b\n");
+    } break;
+
+    case OP_RL_C:
+    {
+        /* RL C */
+        __sm83_rl(cpu, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rl c\n");
+    } break;
+
+    case OP_RL_D:
+    {
+        /* RL D */
+        __sm83_rl(cpu, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rl d\n");
+    } break;
+
+    case OP_RL_E:
+    {
+        /* RL E */
+        __sm83_rl(cpu, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rl e\n");
+    } break;
+
+    case OP_RL_H:
+    {
+        /* RL H */
+        __sm83_rl(cpu, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rl h\n");
+    } break;
+
+    case OP_RL_L:
+    {
+        /* RL L */
+        __sm83_rl(cpu, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rl l\n");
+    } break;
+
+    case OP_RL_HL:
+    {
+        /* RL HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_rl(cpu, &data);
+        sm83_write8(cpu, data, addr);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rl [hl]\n");
+    } break;
+
+    case OP_RL_A:
+    {
+        /* RL A */
+        __sm83_rl(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rl a\n");
+    } break;
+
+    case OP_RR_B:
+    {
+        /* RR B */
+        __sm83_rr(cpu, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rr b\n");
+    } break;
+
+    case OP_RR_C:
+    {
+        /* RR C */
+        __sm83_rr(cpu, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rr c\n");
+    } break;
+
+    case OP_RR_D:
+    {
+        /* RR D */
+        __sm83_rr(cpu, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rr d\n");
+    } break;
+
+    case OP_RR_E:
+    {
+        /* RR E */
+        __sm83_rr(cpu, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rr e\n");
+    } break;
+
+    case OP_RR_H:
+    {
+        /* RR H */
+        __sm83_rr(cpu, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rr h\n");
+    } break;
+
+    case OP_RR_L:
+    {
+        /* RR L */
+        __sm83_rr(cpu, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rr l\n");
+    } break;
+
+    case OP_RR_HL:
+    {
+        /* RR HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_rr(cpu, &data);
+        sm83_write8(cpu, data, addr);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rr [hl]\n");
+    } break;
+
+    case OP_RR_A:
+    {
+        /* RR A */
+        __sm83_rr(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "rr a\n");
+    } break;
+
+    case OP_SLA_C:
+    {
+        /* SLA C */
+        __sm83_sla(cpu, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sla c\n");
+    } break;
+
+    case OP_SLA_D:
+    {
+        /* SLA D */
+        __sm83_sla(cpu, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sla d\n");
+    } break;
+
+    case OP_SLA_E:
+    {
+        /* SLA E */
+        __sm83_sla(cpu, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sla e\n");
+    } break;
+
+    case OP_SLA_H:
+    {
+        /* SLA H */
+        __sm83_sla(cpu, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sla h\n");
+    } break;
+
+    case OP_SLA_L:
+    {
+        /* SLA L */
+        __sm83_sla(cpu, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sla l\n");
+    } break;
+
+    case OP_SLA_HL:
+    {
+        /* SLA HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_sla(cpu, &data);
+        sm83_write8(cpu, data, addr);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sla [hl]\n");
+    } break;
+
+    case OP_SLA_A:
+    {
+        /* SLA A */
+        __sm83_sla(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sla a\n");
+    } break;
+
+    case OP_SRA_B:
+    {
+        /* SRA B */
+        __sm83_sra(cpu, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sra b\n");
+    } break;
+
+    case OP_SRA_C:
+    {
+        /* SRA C */
+        __sm83_sra(cpu, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sra c\n");
+    } break;
+
+    case OP_SRA_D:
+    {
+        /* SRA D */
+        __sm83_sra(cpu, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sra d\n");
+    } break;
+
+    case OP_SRA_E:
+    {
+        /* SRA E */
+        __sm83_sra(cpu, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sra e\n");
+    } break;
+
+    case OP_SRA_H:
+    {
+        /* SRA H */
+        __sm83_sra(cpu, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sra h\n");
+    } break;
+
+    case OP_SRA_L:
+    {
+        /* SRA L */
+        __sm83_sra(cpu, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sra l\n");
+    } break;
+
+    case OP_SRA_HL:
+    {
+        /* SRA HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_sla(cpu, &data);
+        sm83_write8(cpu, data, addr);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sra hl\n");
+    } break;
+
+    case OP_SRA_A:
+    {
+        /* SRA A */
+        __sm83_sra(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "sra a\n");
+    } break;
+
+    case OP_SWAP_B:
+    {
+        /* SWAP B */
+        __sm83_swap(cpu, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "swap b\n");
+    } break;
+
+    case OP_SWAP_C:
+    {
+        /* SWAP C */
+        __sm83_swap(cpu, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "swap c\n");
+    } break;
+
+    case OP_SWAP_D:
+    {
+        /* SWAP D */
+        __sm83_swap(cpu, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "swap d\n");
+    } break;
+
+    case OP_SWAP_E:
+    {
+        /* SWAP E */
+        __sm83_swap(cpu, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "swap e\n");
+    } break;
+
+    case OP_SWAP_H:
+    {
+        /* SWAP H */
+        __sm83_swap(cpu, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "swap h\n");
+    } break;
+
+    case OP_SWAP_L:
+    {
+        /* SWAP L */
+        __sm83_swap(cpu, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "swap l\n");
+    } break;
+
+    case OP_SWAP_HL:
+    {
+        /* SWAP HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_swap(cpu, &data);
+        sm83_write8(cpu, data, addr);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "swap [hl]\n");
+    } break;
+
+    case OP_SWAP_A:
+    {
+        /* SWAP A */
+        __sm83_swap(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "swap a\n");
+    } break;
+
+    case OP_SRL_B:
+    {
+        /* SRL B */
+        __sm83_srl(cpu, &cpu->registers.b);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "srl b\n");
+    } break;
+
+    case OP_SRL_C:
+    {
+        /* SRL C */
+        __sm83_srl(cpu, &cpu->registers.c);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "srl c\n");
+    } break;
+
+    case OP_SRL_D:
+    {
+        /* SRL D */
+        __sm83_srl(cpu, &cpu->registers.d);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "srl d\n");
+    } break;
+
+    case OP_SRL_E:
+    {
+        /* SRL E */
+        __sm83_srl(cpu, &cpu->registers.e);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "srl e\n");
+    } break;
+
+    case OP_SRL_H:
+    {
+        /* SRL H */
+        __sm83_srl(cpu, &cpu->registers.h);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "srl h\n");
+    } break;
+
+    case OP_SRL_L:
+    {
+        /* SRL L */
+        __sm83_srl(cpu, &cpu->registers.l);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "srl l\n");
+    } break;
+
+    case OP_SRL_HL:
+    {
+        /* SRL HL */
+        uint16_t addr = __sm83_join_eight_bits(cpu->registers.h, cpu->registers.l);
+        uint8_t data = sm83_read(cpu, addr);
+        __sm83_srl(cpu, &data);
+        sm83_write8(cpu, data, addr);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "srl [hl]\n");
+    } break;
+
+    case OP_SRL_A:
+    {
+        /* SRL A */
+        __sm83_srl(cpu, &cpu->registers.a);
+        EMIT_DISASM(emit, SM83_ERR_DISASM, &cpu->disasm, "srl a\n");
+    } break;
+
+    default:
+        fprintf(stderr, "ERROR: `0x%x` CB Intruction Not Handled Yet\n", cb_prefixed_instr);
+        return SM83_ERR_INVALID_OPCODE;
+    }
+
     return SM83_OK;
 }
